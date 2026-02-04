@@ -1,56 +1,39 @@
-
 <!DOCTYPE html>
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>GIS Land Price - Listing System</title>
-    
-    <!-- CDNs -->
+    <title>XemGiaDat V2 - Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://unpkg.com/maplibre-gl@5.1.0/dist/maplibre-gl.css" rel="stylesheet" />
-    <script src="https://unpkg.com/maplibre-gl@5.1.0/dist/maplibre-gl.js"></script>
-    <script src="https://unpkg.com/pmtiles@4.0.0/dist/pmtiles.js"></script>
+    <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+    <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+    <script src="https://unpkg.com/pmtiles@3.2.0/dist/pmtiles.js"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
-
     <style>
-        body, html, #root { 
-            height: 100%; margin: 0; padding: 0; overflow: hidden; 
-            background: #0f172a; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-        }
-        .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
-        .bottom-sheet { transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
-        .map-container { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
-        .glass-panel { background: rgba(255, 255, 255, 1); backdrop-filter: blur(20px); }
-        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        body, html, #root { height: 100%; margin: 0; padding: 0; background: #0f172a; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
     </style>
 </head>
 <body>
     <div id="root"></div>
-
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        const PriceService = {
-            calculate: (area) => area * 45000000,
-            format: (val) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val)
-        };
-
         const App = () => {
+            const mapContainer = useRef(null);
             const [selected, setSelected] = useState(null);
-            const [view, setView] = useState('info'); // 'info', 'listing', 'success'
-            const [isExpanded, setIsExpanded] = useState(true);
-            const [images, setImages] = useState([]);
 
             useEffect(() => {
-                const protocol = new pmtiles.Protocol();
+                // 1. Cấu hình PMTiles Protocol
+                let protocol = new pmtiles.Protocol();
                 maplibregl.addProtocol("pmtiles", protocol.tile);
 
+                // 2. Khởi tạo bản đồ
                 const map = new maplibregl.Map({
-                    container: 'map',
+                    container: mapContainer.current,
                     style: {
                         version: 8,
                         sources: {
@@ -59,11 +42,9 @@
                                 tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
                                 tileSize: 256
                             },
-                            'danang': {
+                            'parcels': {
                                 type: 'vector',
-                                url: 'pmtiles://https://xemgiadat.com/tiles/danang_parcels_final.pmtiles',
-                                minzoom: 10,
-                                maxzoom: 20
+                                url: 'pmtiles://https://xemgiadat.com/tiles/danang_parcels_final.pmtiles'
                             }
                         },
                         layers: [
@@ -71,40 +52,37 @@
                             {
                                 id: 'parcels-fill',
                                 type: 'fill',
-                                source: 'danang',
+                                source: 'parcels',
                                 'source-layer': 'default',
-                                paint: { 'fill-color': 'rgba(59, 130, 246, 0.05)', 'fill-outline-color': '#cbd5e1' }
+                                paint: {
+                                    'fill-color': '#334155',
+                                    'fill-opacity': 0.1
+                                }
                             },
                             {
-                                id: 'parcels-h',
+                                id: 'parcels-line',
                                 type: 'line',
-                                source: 'danang',
+                                source: 'parcels',
                                 'source-layer': 'default',
-                                paint: { 'line-color': '#ccff00', 'line-width': 4 },
-                                filter: ['==', ['id'], '']
+                                paint: {
+                                    'line-color': '#94a3b8',
+                                    'line-width': 0.5
+                                }
                             }
                         ]
                     },
                     center: [108.2022, 16.0544],
-                    zoom: 14,
-                    hash: false
+                    zoom: 13
                 });
 
                 map.on('click', 'parcels-fill', (e) => {
-                    const f = e.features[0];
-                    if (f) {
-                        setSelected({
-                            id: f.id || f.properties.OBJECTID,
-                            so_thua: f.properties['Số thửa'] || 'N/A',
-                            so_to: f.properties['Số hiệu tờ bản đồ'] || 'N/A',
-                            dien_tich: parseFloat(f.properties['Diện tích'] || 0),
-                            muc_dich: f.properties['Ký hiệu mục đích sử dụng'] || 'N/A',
-                            dia_chi: f.properties['Địa chỉ'] !== 'Null' ? f.properties['Địa chỉ'] : 'Đà Nẵng'
-                        });
-                        setView('info');
-                        setIsExpanded(true);
-                        map.setFilter('parcels-h', ['==', ['id'], f.id || f.properties.OBJECTID]);
-                    }
+                    const props = e.features[0].properties;
+                    setSelected({
+                        so_thua: props['Số thửa'] || 'N/A',
+                        so_to: props['Số hiệu tờ bản đồ'] || 'N/A',
+                        dien_tich: props['Diện tích'] || 0,
+                        muc_dich: props['Ký hiệu mục đích sử dụng'] || 'N/A'
+                    });
                 });
 
                 map.on('mouseenter', 'parcels-fill', () => map.getCanvas().style.cursor = 'pointer');
@@ -113,116 +91,27 @@
                 return () => map.remove();
             }, []);
 
-            const handleUpload = (e) => {
-                const files = Array.from(e.target.files);
-                files.forEach(f => {
-                    const reader = new FileReader();
-                    reader.onload = (ev) => setImages(prev => [...prev, ev.target.result]);
-                    reader.readAsDataURL(f);
-                });
-            };
-
             return (
-                <div className="relative w-full h-full">
-                    <div id="map" className="map-container"></div>
-
+                <div className="relative h-full w-full">
+                    <div ref={mapContainer} id="map" />
+                    
                     {selected && (
-                        <div className={`absolute bottom-0 inset-x-0 z-50 bottom-sheet ${isExpanded ? 'translate-y-0' : 'translate-y-[calc(100%-80px)]'}`}>
-                            <div className="max-w-xl mx-auto glass-panel rounded-t-[2.5rem] shadow-2xl p-6 pb-safe border-t border-slate-200 min-h-[400px]">
-                                <div className="flex flex-col items-center mb-4 cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>
-                                    <div className="w-12 h-1.5 bg-slate-300 rounded-full"></div>
+                        <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl shadow-2xl p-6 z-[1000] animate-slide-up">
+                            <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-4" />
+                            <h2 className="text-xl font-black text-slate-800 mb-2">Thông tin thửa đất</h2>
+                            <div className="grid grid-cols-2 gap-4 mb-4">
+                                <div className="bg-slate-50 p-3 rounded-xl">
+                                    <span className="text-[10px] text-slate-400 font-bold uppercase">Thửa / Tờ</span>
+                                    <p className="font-bold text-slate-800">{selected.so_thua} / {selected.so_to}</p>
                                 </div>
-
-                                {view === 'info' && (
-                                    <div className="animate-in slide-in-from-bottom-2 duration-300">
-                                        <div className="flex justify-between items-start mb-6">
-                                            <div>
-                                                <h2 className="text-2xl font-black text-slate-900">
-                                                    Thửa {selected.so_thua} <span className="text-slate-400 font-medium">/ Tờ {selected.so_to}</span>
-                                                </h2>
-                                                <p className="text-sm text-slate-500 mt-1 flex items-center gap-1">
-                                                    <i data-lucide="map-pin" className="w-4 h-4 text-red-500"></i> {selected.dia_chi}
-                                                </p>
-                                            </div>
-                                            <button onClick={() => setSelected(null)} className="p-2 bg-slate-100 rounded-full">
-                                                <i data-lucide="x" className="w-5 h-5 text-slate-500"></i>
-                                            </button>
-                                        </div>
-
-                                        <div className="grid grid-cols-2 gap-4 mb-6">
-                                            <div className="bg-slate-50 p-4 rounded-2xl">
-                                                <span className="text-[10px] font-bold text-slate-400 uppercase">Diện tích</span>
-                                                <p className="text-lg font-bold text-slate-800">{selected.dien_tich} m²</p>
-                                            </div>
-                                            <div className="bg-slate-50 p-4 rounded-2xl">
-                                                <span className="text-[10px] font-bold text-slate-400 uppercase">Mục đích</span>
-                                                <p className="text-lg font-bold text-slate-800">{selected.muc_dich}</p>
-                                            </div>
-                                        </div>
-
-                                        <div className="bg-blue-50 border border-blue-200 p-5 rounded-2xl mb-6">
-                                            <span className="text-xs font-bold text-blue-600 uppercase">Giá định giá (2025)</span>
-                                            <p className="text-3xl font-black text-blue-700">
-                                                {PriceService.format(PriceService.calculate(selected.dien_tich))}
-                                            </p>
-                                        </div>
-
-                                        <button 
-                                            onClick={() => setView('listing')}
-                                            className="w-full h-16 bg-slate-900 text-white rounded-2xl font-black text-lg flex items-center justify-center gap-3 shadow-xl shadow-slate-200 active:scale-95 transition-all"
-                                        >
-                                            <i data-lucide="rocket" className="w-6 h-6 text-orange-400"></i> Đăng tin rao bán
-                                        </button>
-                                    </div>
-                                )}
-
-                                {view === 'listing' && (
-                                    <div className="animate-in slide-in-from-right-4 duration-300">
-                                        <div className="flex items-center gap-4 mb-6">
-                                            <button onClick={() => setView('info')} className="p-2 hover:bg-slate-100 rounded-full">
-                                                <i data-lucide="arrow-left" className="w-6 h-6"></i>
-                                            </button>
-                                            <h2 className="text-xl font-black text-slate-900">Thông tin rao bán</h2>
-                                        </div>
-
-                                        <div className="space-y-4">
-                                            <input placeholder="Tiêu đề rao bán..." className="w-full h-14 bg-slate-50 border border-slate-200 rounded-xl px-4 font-bold" defaultValue={`Cần bán thửa ${selected.so_thua} tờ ${selected.so_to}, ${selected.dia_chi}`} />
-                                            
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <input placeholder="Giá mong muốn..." className="w-full h-14 bg-slate-50 border border-slate-200 rounded-xl px-4 font-bold" type="number" />
-                                                <input placeholder="SĐT liên hệ..." className="w-full h-14 bg-slate-50 border border-slate-200 rounded-xl px-4 font-bold" />
-                                            </div>
-
-                                            <div className="flex gap-3 overflow-x-auto py-2 scrollbar-hide">
-                                                <label className="w-20 h-20 shrink-0 bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl flex items-center justify-center cursor-pointer">
-                                                    <i data-lucide="camera" className="w-6 h-6 text-slate-400"></i>
-                                                    <input type="file" multiple className="hidden" onChange={handleUpload} />
-                                                </label>
-                                                {images.map((img, idx) => (
-                                                    <img key={idx} src={img} className="w-20 h-20 shrink-0 object-cover rounded-xl border border-slate-100" />
-                                                ))}
-                                            </div>
-
-                                            <button 
-                                                onClick={() => setView('success')}
-                                                className="w-full h-16 bg-blue-600 text-white rounded-2xl font-black text-lg shadow-xl shadow-blue-100 active:scale-95 transition-all mt-4"
-                                            >
-                                                Xác nhận đăng tin
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {view === 'success' && (
-                                    <div className="flex flex-col items-center justify-center py-10 animate-in zoom-in-95 duration-500">
-                                        <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-6">
-                                            <i data-lucide="check-circle-2" className="w-12 h-12 text-green-600"></i>
-                                        </div>
-                                        <h2 className="text-2xl font-black text-slate-900 mb-2">Đăng thành công!</h2>
-                                        <p className="text-slate-500 text-center text-sm">Tin của bạn đang được xử lý.</p>
-                                    </div>
-                                )}
+                                <div className="bg-slate-50 p-3 rounded-xl">
+                                    <span className="text-[10px] text-slate-400 font-bold uppercase">Diện tích</span>
+                                    <p className="font-bold text-slate-800">{selected.dien_tich} m²</p>
+                                </div>
                             </div>
+                            <button className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold active:scale-95 transition-all">
+                                🚀 Đăng tin rao bán
+                            </button>
                         </div>
                     )}
                 </div>
@@ -231,7 +120,6 @@
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
-        setTimeout(() => lucide.createIcons(), 100);
     </script>
 </body>
 </html>

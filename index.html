@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>XemGiaDat V2 - Pro</title>
+    <title>XemGiaDat V2 - High Performance</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
     <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
@@ -12,34 +12,29 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
-
     <style>
         body, html, #root { height: 100%; margin: 0; padding: 0; overflow: hidden; background: #0f172a; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; }
-        .bottom-sheet { transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
-        .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+        .bottom-sheet { transition: transform 0.4s cubic-bezier(0.1, 0.7, 0.1, 1); border-radius: 32px 32px 0 0; }
     </style>
 </head>
 <body>
     <div id="root"></div>
-
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
-        const { MapPin, Phone, Banknote, Send, CheckCircle2, X, Rocket, Camera } = lucide;
-
-        // Mock Location Security Fix
-        window.__SAFE_LOCATION__ = { href: 'https://xemgiadat.com/' };
 
         const App = () => {
             const mapContainer = useRef(null);
+            const map = useRef(null);
             const [selected, setSelected] = useState(null);
-            const [view, setView] = useState('info'); // info | listing | success
+            const [view, setView] = useState('info');
 
             useEffect(() => {
+                // Khởi tạo Protocol PMTiles
                 const protocol = new pmtiles.Protocol();
                 maplibregl.addProtocol("pmtiles", protocol.tile);
 
-                const map = new maplibregl.Map({
+                map.current = new maplibregl.Map({
                     container: mapContainer.current,
                     style: {
                         version: 8,
@@ -52,34 +47,62 @@
                         },
                         layers: [
                             { id: 'osm', type: 'raster', source: 'osm' },
+                            // CHỈ GIỮ ĐƯỜNG LINE CHO NHẸ (LOẠI BỎ TÔ MÀU NỀN MẶC ĐỊNH)
                             {
-                                id: 'parcels-fill', type: 'fill', source: 'parcels', 'source-layer': 'default',
-                                paint: { 'fill-color': 'rgba(14, 165, 233, 0.1)' }
+                                id: 'parcels-line',
+                                type: 'line',
+                                source: 'parcels',
+                                'source-layer': 'default',
+                                paint: {
+                                    'line-color': '#64748b',
+                                    'line-width': ['interpolate', ['linear'], ['zoom'], 14, 0.3, 18, 1],
+                                    'line-opacity': 0.6
+                                }
                             },
+                            // LAYER TÔ MÀU KHI CLICK (CHỈ HIỆN LÔ ĐƯỢC CHỌN)
                             {
-                                id: 'parcels-highlight', type: 'line', source: 'parcels', 'source-layer': 'default',
-                                paint: { 'line-color': '#fde047', 'line-width': 3 },
+                                id: 'parcels-highlight',
+                                type: 'fill',
+                                source: 'parcels',
+                                'source-layer': 'default',
+                                paint: {
+                                    'fill-color': '#fde047',
+                                    'fill-opacity': 0.5
+                                },
                                 filter: ['==', ['get', 'OBJECTID'], '']
                             }
                         ]
                     },
                     center: [108.2022, 16.0544],
-                    zoom: 16
+                    zoom: 16,
+                    maxZoom: 20
                 });
 
-                map.on('click', 'parcels-fill', (e) => {
-                    const props = e.features[0].properties;
-                    map.setFilter('parcels-highlight', ['==', ['get', 'OBJECTID'], props.OBJECTID]);
-                    setSelected({
-                        so_thua: props['Số thửa'] || 'N/A',
-                        so_to: props['Số hiệu tờ bản đồ'] || 'N/A',
-                        dien_tich: props['Diện tích'] || 0,
-                        muc_dich: props['Ký hiệu mục đích sử dụng'] || 'N/A'
-                    });
-                    setView('info');
+                map.current.on('click', (e) => {
+                    const features = map.current.queryRenderedFeatures(e.point, { layers: ['parcels-line'] });
+                    
+                    if (features.length > 0) {
+                        const props = features[0].properties;
+                        // Highlight đúng lô đất
+                        map.current.setFilter('parcels-highlight', ['==', ['get', 'OBJECTID'], props.OBJECTID]);
+                        
+                        setSelected({
+                            so_thua: props['Số thửa'] || 'N/A',
+                            so_to: props['Số hiệu tờ bản đồ'] || 'N/A',
+                            dien_tich: props['Diện tích'] || 0,
+                            muc_dich: props['Ký hiệu mục đích sử dụng'] || 'N/A'
+                        });
+                        setView('info');
+                    } else {
+                        setSelected(null);
+                        map.current.setFilter('parcels-highlight', ['==', ['get', 'OBJECTID'], '']);
+                    }
                 });
 
-                return () => map.remove();
+                map.current.on('mouseenter', 'parcels-line', () => map.current.getCanvas().style.cursor = 'pointer');
+                map.current.on('mouseleave', 'parcels-line', () => map.current.getCanvas().style.cursor = '');
+
+                return () => map.current.remove();
             }, []);
 
             return (
@@ -87,66 +110,31 @@
                     <div ref={mapContainer} id="map" />
                     
                     {selected && (
-                        <div className="bottom-sheet absolute bottom-0 left-0 right-0 bg-white rounded-t-[32px] shadow-2xl p-6 z-[1000] pb-safe">
+                        <div className="bottom-sheet absolute bottom-0 left-0 right-0 bg-white shadow-[0_-10px_40px_rgba(0,0,0,0.2)] p-6 z-[1000] animate-in slide-in-from-bottom duration-300">
                             <div className="w-12 h-1 bg-slate-200 rounded-full mx-auto mb-6" />
                             
-                            {view === 'info' && (
-                                <div className="animate-in fade-in slide-in-from-bottom-4">
-                                    <div className="flex justify-between items-start mb-6">
-                                        <h2 className="text-2xl font-black text-slate-800 tracking-tight">Thông tin thửa đất</h2>
-                                        <button onClick={() => setSelected(null)} className="p-2 bg-slate-100 rounded-full"><X size={20}/></button>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-3 mb-6">
-                                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                                            <span className="text-[10px] text-slate-400 font-bold uppercase">Thửa / Tờ</span>
-                                            <p className="text-lg font-bold text-slate-800">{selected.so_thua} / {selected.so_to}</p>
-                                        </div>
-                                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                                            <span className="text-[10px] text-slate-400 font-bold uppercase">Diện tích</span>
-                                            <p className="text-lg font-bold text-slate-800">{selected.dien_tich} m²</p>
-                                        </div>
-                                    </div>
-                                    <button 
-                                        onClick={() => setView('listing')}
-                                        className="w-full bg-blue-600 text-white h-14 rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-blue-100 active:scale-95 transition-all"
-                                    >
-                                        <Rocket size={20}/> Rao bán lô đất này
-                                    </button>
+                            <div className="flex justify-between items-start mb-6">
+                                <div>
+                                    <h2 className="text-2xl font-black text-slate-800 tracking-tight">Thửa {selected.so_thua}</h2>
+                                    <p className="text-slate-400 font-bold text-sm">Tờ bản đồ: {selected.so_to}</p>
                                 </div>
-                            )}
+                                <button onClick={() => { setSelected(null); map.current.setFilter('parcels-highlight', ['==', ['get', 'OBJECTID'], '']); }} className="p-2 bg-slate-100 rounded-full text-slate-400">✕</button>
+                            </div>
 
-                            {view === 'listing' && (
-                                <div className="animate-in fade-in slide-in-from-right-4">
-                                    <h2 className="text-xl font-black text-slate-800 mb-4 flex items-center gap-2">
-                                        <button onClick={() => setView('info')} className="p-1"><X size={20}/></button> Đăng tin rao bán
-                                    </h2>
-                                    <div className="space-y-4">
-                                        <div className="relative">
-                                            <Banknote className="absolute left-4 top-4 text-slate-400" size={20}/>
-                                            <input className="w-full bg-slate-50 border border-slate-200 h-14 pl-12 pr-4 rounded-xl font-bold" placeholder="Giá mong muốn (tỷ VNĐ)" />
-                                        </div>
-                                        <div className="relative">
-                                            <Phone className="absolute left-4 top-4 text-slate-400" size={20}/>
-                                            <input className="w-full bg-slate-50 border border-slate-200 h-14 pl-12 pr-4 rounded-xl font-bold" placeholder="Số điện thoại liên hệ" />
-                                        </div>
-                                        <button 
-                                            onClick={() => setView('success')}
-                                            className="w-full bg-slate-900 text-white h-14 rounded-2xl font-bold active:scale-95 transition-all"
-                                        >Xác nhận đăng tin</button>
-                                    </div>
+                            <div className="grid grid-cols-2 gap-3 mb-6">
+                                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                    <span className="text-[10px] text-slate-400 font-bold uppercase">Diện tích</span>
+                                    <p className="text-lg font-bold text-slate-800">{selected.dien_tich} m²</p>
                                 </div>
-                            )}
+                                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                    <span className="text-[10px] text-slate-400 font-bold uppercase">Mục đích</span>
+                                    <p className="text-lg font-bold text-slate-800">{selected.muc_dich}</p>
+                                </div>
+                            </div>
 
-                            {view === 'success' && (
-                                <div className="flex flex-col items-center py-10 animate-in zoom-in-95">
-                                    <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-4">
-                                        <CheckCircle2 size={40} className="text-green-600"/>
-                                    </div>
-                                    <h2 className="text-2xl font-black text-slate-900">Thành công!</h2>
-                                    <p className="text-slate-500 text-center text-sm mt-2">Tin của bạn đã được liên kết với dữ liệu GIS.</p>
-                                    <button onClick={() => setSelected(null)} className="mt-6 text-blue-600 font-bold underline">Quay lại bản đồ</button>
-                                </div>
-                            )}
+                            <button className="w-full h-14 bg-blue-600 text-white rounded-2xl font-bold shadow-lg shadow-blue-100 active:scale-95 transition-all">
+                                🚀 Đăng tin rao bán
+                            </button>
                         </div>
                     )}
                 </div>

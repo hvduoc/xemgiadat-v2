@@ -6,32 +6,35 @@
     <title>XemGiaDat V2 - Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+    <style>
+        body, html, #root { height: 100%; margin: 0; padding: 0; background: #0f172a; overflow: hidden; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+        .bottom-sheet { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
     <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
     <script src="https://unpkg.com/pmtiles@3.2.0/dist/pmtiles.js"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <style>
-        body, html, #root { height: 100%; margin: 0; padding: 0; background: #0f172a; }
-        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
-    </style>
-</head>
-<body>
-    <div id="root"></div>
+
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
         const App = () => {
             const mapContainer = useRef(null);
             const [selected, setSelected] = useState(null);
+            const [loading, setLoading] = useState(true);
 
             useEffect(() => {
-                // 1. Cấu hình PMTiles Protocol
-                let protocol = new pmtiles.Protocol();
+                // 1. Thiết lập PMTiles Protocol (Bản ổn định v3)
+                const protocol = new pmtiles.Protocol();
                 maplibregl.addProtocol("pmtiles", protocol.tile);
 
-                // 2. Khởi tạo bản đồ
+                // 2. Khởi tạo bản đồ MapLibre
                 const map = new maplibregl.Map({
                     container: mapContainer.current,
                     style: {
@@ -55,8 +58,8 @@
                                 source: 'parcels',
                                 'source-layer': 'default',
                                 paint: {
-                                    'fill-color': '#334155',
-                                    'fill-opacity': 0.1
+                                    'fill-color': '#0ea5e9',
+                                    'fill-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 0.4, 0.1]
                                 }
                             },
                             {
@@ -65,9 +68,20 @@
                                 source: 'parcels',
                                 'source-layer': 'default',
                                 paint: {
-                                    'line-color': '#94a3b8',
-                                    'line-width': 0.5
+                                    'line-color': '#0ea5e9',
+                                    'line-width': 0.8
                                 }
+                            },
+                            {
+                                id: 'parcels-highlight',
+                                type: 'line',
+                                source: 'parcels',
+                                'source-layer': 'default',
+                                paint: {
+                                    'line-color': '#fde047',
+                                    'line-width': 3
+                                },
+                                filter: ['==', ['get', 'OBJECTID'], '']
                             }
                         ]
                     },
@@ -75,13 +89,22 @@
                     zoom: 13
                 });
 
+                map.on('load', () => setLoading(false));
+
+                // 3. Logic truy vấn thông tin 'default' layer
                 map.on('click', 'parcels-fill', (e) => {
-                    const props = e.features[0].properties;
+                    const feature = e.features[0];
+                    const props = feature.properties;
+                    
+                    // Highlight thửa đất được chọn
+                    map.setFilter('parcels-highlight', ['==', ['get', 'OBJECTID'], props.OBJECTID]);
+
                     setSelected({
                         so_thua: props['Số thửa'] || 'N/A',
                         so_to: props['Số hiệu tờ bản đồ'] || 'N/A',
-                        dien_tich: props['Diện tích'] || 0,
-                        muc_dich: props['Ký hiệu mục đích sử dụng'] || 'N/A'
+                        dien_tich: props['Diện tích'] || props['area'] || 0,
+                        muc_dich: props['Ký hiệu mục đích sử dụng'] || 'N/A',
+                        dia_chi: props['Địa chỉ'] !== 'Null' ? props['Địa chỉ'] : 'Đà Nẵng'
                     });
                 });
 
@@ -95,22 +118,37 @@
                 <div className="relative h-full w-full">
                     <div ref={mapContainer} id="map" />
                     
+                    {loading && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-slate-900/50 z-50">
+                            <div className="bg-white p-4 rounded-xl shadow-xl font-bold animate-bounce">Đang nạp bản đồ...</div>
+                        </div>
+                    )}
+
                     {selected && (
-                        <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl shadow-2xl p-6 z-[1000] animate-slide-up">
-                            <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-4" />
-                            <h2 className="text-xl font-black text-slate-800 mb-2">Thông tin thửa đất</h2>
-                            <div className="grid grid-cols-2 gap-4 mb-4">
-                                <div className="bg-slate-50 p-3 rounded-xl">
-                                    <span className="text-[10px] text-slate-400 font-bold uppercase">Thửa / Tờ</span>
-                                    <p className="font-bold text-slate-800">{selected.so_thua} / {selected.so_to}</p>
+                        <div className="bottom-sheet absolute bottom-0 left-0 right-0 bg-white rounded-t-[32px] shadow-[0_-8px_30px_rgb(0,0,0,0.12)] p-6 z-[1000] pb-10">
+                            <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-6" />
+                            
+                            <div className="flex justify-between items-start mb-6">
+                                <div>
+                                    <h2 className="text-2xl font-black text-slate-800">Thông tin lô đất</h2>
+                                    <p className="text-slate-400 text-sm font-medium">{selected.dia_chi}</p>
                                 </div>
-                                <div className="bg-slate-50 p-3 rounded-xl">
-                                    <span className="text-[10px] text-slate-400 font-bold uppercase">Diện tích</span>
-                                    <p className="font-bold text-slate-800">{selected.dien_tich} m²</p>
+                                <button onClick={() => setSelected(null)} className="p-2 bg-slate-100 rounded-full">✕</button>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4 mb-6">
+                                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                    <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Thửa / Tờ</span>
+                                    <p className="text-lg font-bold text-slate-800">{selected.so_thua} / {selected.so_to}</p>
+                                </div>
+                                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                    <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Diện tích</span>
+                                    <p className="text-lg font-bold text-slate-800">{selected.dien_tich} m²</p>
                                 </div>
                             </div>
-                            <button className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold active:scale-95 transition-all">
-                                🚀 Đăng tin rao bán
+
+                            <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-2xl font-bold shadow-lg shadow-blue-200 active:scale-95 transition-all text-lg">
+                                🚀 Rao bán lô đất này
                             </button>
                         </div>
                     )}

@@ -10,6 +10,7 @@
     <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
     <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
     <script src="https://unpkg.com/pmtiles@3.2.0/dist/index.js"></script>
+    <script src="https://unpkg.com/lucide@0.474.0/dist/umd/lucide.min.js"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -40,18 +41,6 @@
             font-size: 15px; font-weight: 500; color: #1e293b;
         }
     </style>
-<script type="importmap">
-{
-  "imports": {
-    "react": "https://esm.sh/react@^19.2.4",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
-    "react/": "https://esm.sh/react@^19.2.4/",
-    "lucide-react": "https://esm.sh/lucide-react@^0.563.0",
-    "maplibre-gl": "https://esm.sh/maplibre-gl@^5.17.0",
-    "pmtiles": "https://esm.sh/pmtiles@^4.4.0"
-  }
-}
-</script>
 </head>
 <body>
     <div id="root"></div>
@@ -88,15 +77,22 @@
         /**
          * 2. ICONS
          */
+        const LucideIcon = ({ name, className, strokeWidth = 2 }) => {
+            const icon = window.lucide && window.lucide.icons && window.lucide.icons[name]
+                ? window.lucide.icons[name].toSvg({ class: className, 'stroke-width': strokeWidth })
+                : '';
+            return <span className={className} dangerouslySetInnerHTML={{ __html: icon }} />;
+        };
+
         const Icons = {
-            Search: () => <svg className="w-5 h-5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>,
-            MapPin: () => <svg className="w-4 h-4 text-red-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>,
-            X: () => <svg className="w-5 h-5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6 6 18M6 6l12 12"/></svg>,
-            Rocket: () => <svg className="w-6 h-6 text-yellow-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/></svg>,
-            Camera: () => <svg className="w-5 h-5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>,
-            ArrowLeft: () => <svg className="w-6 h-6 text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m12 19-7-7 7-7M5 12h14"/></svg>,
-            Check: () => <svg className="w-12 h-12 text-green-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M20 6 9 17l-5-5"/></svg>,
-            Banknote: () => <svg className="w-5 h-5 text-yellow-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/></svg>
+            Search: () => <LucideIcon name="search" className="w-5 h-5 text-slate-400" strokeWidth={2.5} />,
+            MapPin: () => <LucideIcon name="map-pin" className="w-4 h-4 text-red-500" />,
+            X: () => <LucideIcon name="x" className="w-5 h-5 text-slate-400" />,
+            Rocket: () => <LucideIcon name="rocket" className="w-6 h-6 text-yellow-400" />,
+            Camera: () => <LucideIcon name="camera" className="w-5 h-5 text-slate-400" />,
+            ArrowLeft: () => <LucideIcon name="arrow-left" className="w-6 h-6 text-slate-600" />,
+            Check: () => <LucideIcon name="check" className="w-12 h-12 text-green-600" strokeWidth={3} />,
+            Banknote: () => <LucideIcon name="banknote" className="w-5 h-5 text-yellow-500" />
         };
 
         /**
@@ -111,13 +107,63 @@
             const [images, setImages] = useState([]);
             const [form, setForm] = useState({ price: '', phone: '' });
 
+            const getFeatureCenter = (feature) => {
+                if (!feature || !feature.geometry) return null;
+                const coords = feature.geometry.coordinates;
+                const flat = [];
+                const walk = (arr) => {
+                    if (typeof arr[0] === 'number') {
+                        flat.push(arr);
+                        return;
+                    }
+                    arr.forEach(walk);
+                };
+                walk(coords);
+                if (!flat.length) return null;
+                let minX = flat[0][0], minY = flat[0][1], maxX = flat[0][0], maxY = flat[0][1];
+                flat.forEach(([x, y]) => {
+                    if (x < minX) minX = x;
+                    if (y < minY) minY = y;
+                    if (x > maxX) maxX = x;
+                    if (y > maxY) maxY = y;
+                });
+                return [(minX + maxX) / 2, (minY + maxY) / 2];
+            };
+
+            const selectParcel = (map, feature) => {
+                const id = feature.id || feature.properties.OBJECTID;
+                const props = feature.properties || {};
+                const to = props['Số hiệu tờ bản đồ'] || props.so_to || 'N/A';
+                const thua = props['Số thửa'] || props.so_thua || 'N/A';
+                const dienTich = parseFloat(props['Diện tích'] || props.dien_tich || 0);
+                const mucDich = props['Ký hiệu mục đích sử dụng'] || props.muc_dich || 'N/A';
+                const diaChi = props['Địa chỉ'] !== 'Null' ? (props['Địa chỉ'] || props.dia_chi || 'TP. Đà Nẵng') : 'TP. Đà Nẵng';
+
+                setSelected({
+                    id,
+                    so_thua: thua,
+                    so_to: to,
+                    dien_tich: dienTich,
+                    muc_dich: mucDich,
+                    dia_chi: diaChi
+                });
+                setView('info');
+
+                map.setFilter('parcels-highlight', ['==', ['id'], id]);
+                map.setFilter('parcels-highlight-fill', ['==', ['id'], id]);
+
+                const center = getFeatureCenter(feature);
+                if (center) {
+                    map.flyTo({ center, zoom: Math.max(map.getZoom(), 17), essential: true });
+                }
+            };
+
             useEffect(() => {
                 if (window.maplibregl) {
                     window.maplibregl.workerUrl = 'https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl-csp-worker.js';
                 }
 
-                const PMTilesLib = window.pmtiles || window.PMTiles;
-                const protocol = new PMTilesLib.Protocol();
+                const protocol = new pmtiles.Protocol();
                 window.maplibregl.addProtocol("pmtiles", protocol.tile);
 
                 const map = new window.maplibregl.Map({
@@ -139,12 +185,12 @@
                                 paint: { 'line-color': '#64748b', 'line-width': 0.5, 'line-opacity': 0.4 }
                             },
                             {
-                                id: 'parcels-click-area', type: 'fill', source: 'parcels', 'source-layer': 'default',
-                                paint: { 'fill-color': 'transparent' }
+                                id: 'parcels-fill', type: 'fill', source: 'parcels', 'source-layer': 'default',
+                                paint: { 'fill-color': '#000000', 'fill-opacity': 0 }
                             },
                             {
                                 id: 'parcels-highlight', type: 'line', source: 'parcels', 'source-layer': 'default',
-                                paint: { 'line-color': '#fde047', 'line-width': 4 },
+                                paint: { 'line-color': '#fde047', 'line-width': 3 },
                                 filter: ['==', ['id'], '']
                             },
                             {
@@ -160,26 +206,15 @@
                     attributionControl: false
                 });
 
-                map.on('click', 'parcels-click-area', (e) => {
+                map.on('click', 'parcels-fill', (e) => {
                     const f = e.features[0];
                     if (f) {
-                        const id = f.id || f.properties.OBJECTID;
-                        setSelected({
-                            id,
-                            so_thua: f.properties['Số thửa'] || 'N/A',
-                            so_to: f.properties['Số hiệu tờ bản đồ'] || 'N/A',
-                            dien_tich: parseFloat(f.properties['Diện tích'] || 0),
-                            muc_dich: f.properties['Ký hiệu mục đích sử dụng'] || 'N/A',
-                            dia_chi: f.properties['Địa chỉ'] !== 'Null' ? f.properties['Địa chỉ'] : 'TP. Đà Nẵng'
-                        });
-                        setView('info');
-                        map.setFilter('parcels-highlight', ['==', ['id'], id]);
-                        map.setFilter('parcels-highlight-fill', ['==', ['id'], id]);
+                        selectParcel(map, f);
                     }
                 });
 
-                map.on('mouseenter', 'parcels-click-area', () => map.getCanvas().style.cursor = 'pointer');
-                map.on('mouseleave', 'parcels-click-area', () => map.getCanvas().style.cursor = '');
+                map.on('mouseenter', 'parcels-fill', () => map.getCanvas().style.cursor = 'pointer');
+                map.on('mouseleave', 'parcels-fill', () => map.getCanvas().style.cursor = '');
 
                 mapRef.current = map;
                 return () => map.remove();
@@ -187,8 +222,51 @@
 
             const handleSearch = (e) => {
                 e.preventDefault();
-                // Thực hiện tìm kiếm visual (Chỉ ví dụ vì vector tile search cần index backend)
-                alert("Đang tìm Số thửa: " + searchQuery + ". Hệ thống sẽ highlight khi bạn click trực tiếp vào bản đồ.");
+                const map = mapRef.current;
+                if (!map) return;
+                const raw = (searchQuery || '').trim();
+                if (!raw) return;
+
+                const normalized = raw.replace(/\s+/g, ' ');
+                let so_to = '';
+                let so_thua = '';
+
+                const thuaMatch = normalized.match(/thửa\s*([0-9A-Za-z]+)/i);
+                const toMatch = normalized.match(/t(?:ờ|o)?\s*([0-9A-Za-z]+)/i);
+                if (thuaMatch) so_thua = thuaMatch[1];
+                if (toMatch) so_to = toMatch[1];
+
+                if (!so_to && !so_thua) {
+                    const parts = normalized.split(/[\/-\s,]+/).filter(Boolean);
+                    if (parts.length === 1) {
+                        so_thua = parts[0];
+                    } else if (parts.length >= 2) {
+                        so_to = parts[0];
+                        so_thua = parts[1];
+                    }
+                }
+
+                const features = map.querySourceFeatures('parcels', { sourceLayer: 'default' }) || [];
+                const matches = features
+                    .map(f => {
+                        const props = f.properties || {};
+                        const fTo = String(props['Số hiệu tờ bản đồ'] || props.so_to || '').trim();
+                        const fThua = String(props['Số thửa'] || props.so_thua || '').trim();
+                        let score = 0;
+                        if (so_to && fTo === so_to) score += 80;
+                        if (so_thua && fThua === so_thua) score += 100;
+                        if (!so_to && so_thua && fThua.startsWith(so_thua)) score += 40;
+                        return { feature: f, score };
+                    })
+                    .filter(r => r.score > 0)
+                    .sort((a, b) => b.score - a.score);
+
+                if (!matches.length) {
+                    alert('Không tìm thấy thửa phù hợp trong vùng đang xem. Hãy zoom hoặc thử lại.');
+                    return;
+                }
+
+                selectParcel(map, matches[0].feature);
             };
 
             const submitForm = () => {

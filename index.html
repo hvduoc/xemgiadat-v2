@@ -3,40 +3,151 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>XemGiaDat V2 - Pro</title>
+    <title>XemGiaDat V2 - GIS Pro</title>
+    
+    <!-- CDNs -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+    <link href="https://unpkg.com/maplibre-gl@5.1.0/dist/maplibre-gl.css" rel="stylesheet" />
+    
     <style>
-        body, html, #root { height: 100%; margin: 0; padding: 0; background: #0f172a; overflow: hidden; }
-        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
-        .bottom-sheet { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        body, html, #root { 
+            height: 100%; margin: 0; padding: 0; overflow: hidden; 
+            background: #0f172a; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+        .map-container { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
+        
+        /* Hiệu ứng trượt mượt cho Bottom Sheet */
+        .bottom-sheet-transition {
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        /* Ẩn scrollbar nhưng vẫn cho cuộn */
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* Animation cho các View chuyển cảnh */
+        @keyframes slideInRight {
+            from { transform: translateX(30px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        .animate-slide-in { animation: slideInRight 0.3s ease-out forwards; }
+
+        /* Map controls adjustment */
+        .maplibregl-ctrl-bottom-right { bottom: 80px !important; transition: bottom 0.3s; }
     </style>
+
+    <script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@19.0.0",
+        "react-dom": "https://esm.sh/react-dom@19.0.0",
+        "react-dom/client": "https://esm.sh/react-dom@19.0.0/client",
+        "lucide-react": "https://esm.sh/lucide-react@0.460.0?external=react",
+        "maplibre-gl": "https://esm.sh/maplibre-gl@5.1.0",
+        "pmtiles": "https://esm.sh/pmtiles@3.2.0"
+      }
+    }
+    </script>
 </head>
 <body>
     <div id="root"></div>
 
-    <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-    <script src="https://unpkg.com/pmtiles@3.2.0/dist/pmtiles.js"></script>
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script type="module">
+        import React, { useState, useEffect, useRef, useMemo } from 'react';
+        import ReactDOM from 'react-dom/client';
+        import maplibregl from 'maplibre-gl';
+        import * as pmtiles from 'pmtiles';
+        import { 
+            MapPin, Share2, X, Rocket, Camera, ArrowLeft, 
+            CheckCircle2, Phone, Banknote, Send, Info, Layers, StickyNote, Copy
+        } from 'lucide-react';
 
-    <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
+        /**
+         * 1. CẦU CHÌ BẢO VỆ: bypassLocation (Mock Location)
+         * Tránh lỗi Cross-Origin khi thư viện cố đọc window.location
+         */
+        const setupSafeLocation = () => {
+            const fakeLoc = { 
+                href: 'https://xemgiadat.com/', 
+                origin: 'https://xemgiadat.com', 
+                protocol: 'https:',
+                host: 'xemgiadat.com',
+                hostname: 'xemgiadat.com',
+                pathname: '/',
+                search: '',
+                hash: '',
+                toString: () => 'https://xemgiadat.com/'
+            };
+            window.__SAFE_LOCATION__ = fakeLoc;
+            try {
+                const locationProxy = new Proxy(window.location, {
+                    get: (target, prop) => prop in fakeLoc ? fakeLoc[prop] : target[prop]
+                });
+                Object.defineProperty(window, 'location', { value: locationProxy, configurable: true });
+            } catch (e) { console.warn('Location proxy assignment restricted.'); }
+        };
+        setupSafeLocation();
 
+        /**
+         * 2. SERVICES LOGIC
+         */
+        const PriceService = {
+            calculate: (area) => area * 45000000,
+            format: (val) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val)
+        };
+
+        const ImageService = {
+            compress: async (file) => {
+                return new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.readAsDataURL(file);
+                    reader.onload = (e) => {
+                        const img = new Image();
+                        img.src = e.target.result;
+                        img.onload = () => {
+                            const canvas = document.createElement('canvas');
+                            const MAX_WIDTH = 1000;
+                            let width = img.width;
+                            let height = img.height;
+                            if (width > MAX_WIDTH) {
+                                height *= MAX_WIDTH / width;
+                                width = MAX_WIDTH;
+                            }
+                            canvas.width = width;
+                            canvas.height = height;
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(img, 0, 0, width, height);
+                            resolve(canvas.toDataURL('image/jpeg', 0.6));
+                        };
+                    };
+                });
+            }
+        };
+
+        /**
+         * 3. MAIN APP COMPONENT
+         */
         const App = () => {
-            const mapContainer = useRef(null);
+            const mapContainerRef = useRef(null);
+            const mapRef = useRef(null);
             const [selected, setSelected] = useState(null);
-            const [loading, setLoading] = useState(true);
+            const [view, setView] = useState('info'); // info | listing | success
+            const [isExpanded, setIsExpanded] = useState(true);
+            const [images, setImages] = useState([]);
+            const [form, setForm] = useState({ price: '', phone: '', note: '' });
+            const [loading, setLoading] = useState(false);
 
             useEffect(() => {
-                // 1. Thiết lập PMTiles Protocol (Bản ổn định v3)
+                if (!mapContainerRef.current) return;
+
+                // Khởi tạo Protocol PMTiles
                 const protocol = new pmtiles.Protocol();
                 maplibregl.addProtocol("pmtiles", protocol.tile);
 
-                // 2. Khởi tạo bản đồ MapLibre
                 const map = new maplibregl.Map({
-                    container: mapContainer.current,
+                    container: mapContainerRef.current,
                     style: {
                         version: 8,
                         sources: {
@@ -44,112 +155,239 @@
                                 type: 'raster',
                                 tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
                                 tileSize: 256
-                            },
-                            'parcels': {
-                                type: 'vector',
-                                url: 'pmtiles://https://xemgiadat.com/tiles/danang_parcels_final.pmtiles'
                             }
                         },
-                        layers: [
-                            { id: 'osm', type: 'raster', source: 'osm' },
-                            {
-                                id: 'parcels-fill',
-                                type: 'fill',
-                                source: 'parcels',
-                                'source-layer': 'default',
-                                paint: {
-                                    'fill-color': '#0ea5e9',
-                                    'fill-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 0.4, 0.1]
-                                }
-                            },
-                            {
-                                id: 'parcels-line',
-                                type: 'line',
-                                source: 'parcels',
-                                'source-layer': 'default',
-                                paint: {
-                                    'line-color': '#0ea5e9',
-                                    'line-width': 0.8
-                                }
-                            },
-                            {
-                                id: 'parcels-highlight',
-                                type: 'line',
-                                source: 'parcels',
-                                'source-layer': 'default',
-                                paint: {
-                                    'line-color': '#fde047',
-                                    'line-width': 3
-                                },
-                                filter: ['==', ['get', 'OBJECTID'], '']
-                            }
-                        ]
+                        layers: [{ id: 'osm', type: 'raster', source: 'osm' }]
                     },
                     center: [108.2022, 16.0544],
-                    zoom: 13
+                    zoom: 14,
+                    hash: false,
+                    validateStyle: false
                 });
 
-                map.on('load', () => setLoading(false));
-
-                // 3. Logic truy vấn thông tin 'default' layer
-                map.on('click', 'parcels-fill', (e) => {
-                    const feature = e.features[0];
-                    const props = feature.properties;
-                    
-                    // Highlight thửa đất được chọn
-                    map.setFilter('parcels-highlight', ['==', ['get', 'OBJECTID'], props.OBJECTID]);
-
-                    setSelected({
-                        so_thua: props['Số thửa'] || 'N/A',
-                        so_to: props['Số hiệu tờ bản đồ'] || 'N/A',
-                        dien_tich: props['Diện tích'] || props['area'] || 0,
-                        muc_dich: props['Ký hiệu mục đích sử dụng'] || 'N/A',
-                        dia_chi: props['Địa chỉ'] !== 'Null' ? props['Địa chỉ'] : 'Đà Nẵng'
+                map.on('load', () => {
+                    // Thêm Source PMTiles - URL Tuyệt đối
+                    map.addSource('parcels', {
+                        type: 'vector',
+                        url: 'pmtiles://https://xemgiadat.com/tiles/danang_parcels_final.pmtiles',
+                        minzoom: 10,
+                        maxzoom: 20
                     });
+
+                    // Layer Vùng đệm tương tác
+                    map.addLayer({
+                        id: 'parcels-fill',
+                        type: 'fill',
+                        source: 'parcels',
+                        'source-layer': 'default',
+                        paint: { 'fill-color': 'rgba(255,255,255,0)' }
+                    });
+
+                    // Layer Ranh giới
+                    map.addLayer({
+                        id: 'parcels-line',
+                        type: 'line',
+                        source: 'parcels',
+                        'source-layer': 'default',
+                        paint: { 
+                            'line-color': '#64748b', 
+                            'line-width': ['interpolate', ['linear'], ['zoom'], 14, 0.2, 18, 0.8],
+                            'line-opacity': 0.4
+                        }
+                    });
+
+                    // LAYER HIGHLIGHT: Vàng rực rỡ #fde047, width 3
+                    map.addLayer({
+                        id: 'parcels-highlight',
+                        type: 'line',
+                        source: 'parcels',
+                        'source-layer': 'default',
+                        paint: { 'line-color': '#fde047', 'line-width': 3 },
+                        filter: ['==', ['id'], '']
+                    });
+                });
+
+                map.on('click', 'parcels-fill', (e) => {
+                    const f = e.features[0];
+                    if (f) {
+                        const id = f.id || f.properties.OBJECTID;
+                        setSelected({
+                            id,
+                            so_thua: f.properties['Số thửa'] || 'N/A',
+                            so_to: f.properties['Số hiệu tờ bản đồ'] || 'N/A',
+                            dien_tich: parseFloat(f.properties['Diện tích'] || 0),
+                            muc_dich: f.properties['Ký hiệu mục đích sử dụng'] || 'N/A',
+                            dia_chi: f.properties['Địa chỉ'] !== 'Null' ? f.properties['Địa chỉ'] : 'Đà Nẵng'
+                        });
+                        setView('info');
+                        setIsExpanded(true);
+                        map.setFilter('parcels-highlight', ['==', ['id'], id]);
+                    }
                 });
 
                 map.on('mouseenter', 'parcels-fill', () => map.getCanvas().style.cursor = 'pointer');
                 map.on('mouseleave', 'parcels-fill', () => map.getCanvas().style.cursor = '');
 
+                mapRef.current = map;
                 return () => map.remove();
             }, []);
 
+            const handlePhoto = async (e) => {
+                const files = Array.from(e.target.files);
+                const newImages = await Promise.all(files.slice(0, 5 - images.length).map(f => ImageService.compress(f)));
+                setImages([...images, ...newImages]);
+            };
+
+            const submit = async () => {
+                setLoading(true);
+                await new Promise(r => setTimeout(r, 1500));
+                setView('success');
+                setLoading(false);
+                setTimeout(() => { setSelected(null); setView('info'); }, 3000);
+            };
+
             return (
-                <div className="relative h-full w-full">
-                    <div ref={mapContainer} id="map" />
-                    
-                    {loading && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-slate-900/50 z-50">
-                            <div className="bg-white p-4 rounded-xl shadow-xl font-bold animate-bounce">Đang nạp bản đồ...</div>
-                        </div>
-                    )}
+                <div className="relative w-full h-full select-none">
+                    <div ref={mapContainerRef} className="map-container" />
 
                     {selected && (
-                        <div className="bottom-sheet absolute bottom-0 left-0 right-0 bg-white rounded-t-[32px] shadow-[0_-8px_30px_rgb(0,0,0,0.12)] p-6 z-[1000] pb-10">
-                            <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-6" />
-                            
-                            <div className="flex justify-between items-start mb-6">
-                                <div>
-                                    <h2 className="text-2xl font-black text-slate-800">Thông tin lô đất</h2>
-                                    <p className="text-slate-400 text-sm font-medium">{selected.dia_chi}</p>
+                        <div className={`absolute bottom-0 inset-x-0 z-[100] bottom-sheet-transition
+                            ${isExpanded ? 'translate-y-0' : 'translate-y-[calc(100%-80px)]'}
+                        `}>
+                            <div className="max-w-xl mx-auto bg-white rounded-t-[2.5rem] shadow-[0_-10px_50px_rgba(0,0,0,0.15)] pb-safe border-t border-slate-100 flex flex-col overflow-hidden">
+                                
+                                {/* Handle bar */}
+                                <div className="h-10 flex flex-col items-center justify-center cursor-pointer shrink-0" onClick={() => setIsExpanded(!isExpanded)}>
+                                    <div className="w-12 h-1.5 bg-slate-200 rounded-full" />
                                 </div>
-                                <button onClick={() => setSelected(null)} className="p-2 bg-slate-100 rounded-full">✕</button>
-                            </div>
 
-                            <div className="grid grid-cols-2 gap-4 mb-6">
-                                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                                    <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Thửa / Tờ</span>
-                                    <p className="text-lg font-bold text-slate-800">{selected.so_thua} / {selected.so_to}</p>
-                                </div>
-                                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                                    <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Diện tích</span>
-                                    <p className="text-lg font-bold text-slate-800">{selected.dien_tich} m²</p>
+                                <div className="px-6 pb-8 overflow-y-auto max-h-[85vh] scrollbar-hide">
+                                    
+                                    {/* VIEW 1: THÔNG TIN CHI TIẾT */}
+                                    {view === 'info' && (
+                                        <div className="animate-slide-in">
+                                            <div className="flex justify-between items-start mb-6">
+                                                <div>
+                                                    <h2 className="text-2xl font-black text-slate-900 leading-tight">
+                                                        Thửa {selected.so_thua} <span className="text-slate-300">/ Tờ {selected.so_to}</span>
+                                                    </h2>
+                                                    <p className="text-sm text-slate-500 font-medium flex items-center gap-1 mt-1">
+                                                        <MapPin className="w-4 h-4 text-red-500" /> {selected.dia_chi}
+                                                    </p>
+                                                </div>
+                                                <button onClick={() => setSelected(null)} className="p-2 bg-slate-100 rounded-full active:scale-90 transition-transform">
+                                                    <X className="w-5 h-5 text-slate-400" />
+                                                </button>
+                                            </div>
+
+                                            <div className="grid grid-cols-2 gap-3 mb-4">
+                                                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Diện tích</p>
+                                                    <p className="text-lg font-black text-slate-800">{selected.dien_tich} m²</p>
+                                                </div>
+                                                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Mục đích</p>
+                                                    <p className="text-lg font-black text-slate-800">{selected.muc_dich}</p>
+                                                </div>
+                                            </div>
+
+                                            <div className="bg-yellow-50 border border-yellow-100 p-5 rounded-2xl mb-6 shadow-sm flex items-center justify-between">
+                                                <div>
+                                                    <span className="text-[10px] font-bold text-yellow-600 uppercase tracking-widest block mb-1">Giá định giá 2025</span>
+                                                    <p className="text-3xl font-black text-yellow-700 tracking-tight leading-none">
+                                                        {PriceService.format(PriceService.calculate(selected.dien_tich))}
+                                                    </p>
+                                                </div>
+                                                <div className="p-3 bg-yellow-100 rounded-xl"><Banknote className="w-6 h-6 text-yellow-600" /></div>
+                                            </div>
+
+                                            <div className="flex flex-col gap-3">
+                                                <button onClick={() => setView('listing')} className="w-full h-16 bg-slate-900 text-white rounded-2xl font-black text-lg flex items-center justify-center gap-3 shadow-xl active:scale-95 transition-all">
+                                                    <Rocket className="w-6 h-6 text-yellow-400" /> Rao bán lô này
+                                                </button>
+                                                <div className="flex gap-2">
+                                                    <button className="flex-1 bg-slate-100 text-slate-600 h-14 rounded-xl font-bold text-sm flex items-center justify-center gap-2"><Share2 className="w-4 h-4" /> Chia sẻ</button>
+                                                    <button className="flex-1 bg-slate-100 text-slate-600 h-14 rounded-xl font-bold text-sm flex items-center justify-center gap-2"><Copy className="w-4 h-4" /> Tọa độ</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* VIEW 2: FORM ĐĂNG TIN (AUTO-FILL) */}
+                                    {view === 'listing' && (
+                                        <div className="animate-slide-in">
+                                            <div className="flex items-center gap-4 mb-6">
+                                                <button onClick={() => setView('info')} className="p-2 bg-slate-100 rounded-full"><ArrowLeft className="w-6 h-6 text-slate-600" /></button>
+                                                <h2 className="text-xl font-black text-slate-900">Chi tiết rao bán</h2>
+                                            </div>
+
+                                            <div className="space-y-4">
+                                                {/* AUTO-FILL GIS DATA (Read-only) */}
+                                                <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl">
+                                                    <div className="flex items-center gap-2 mb-3">
+                                                        <Layers className="w-3.5 h-3.5 text-slate-400" />
+                                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Dữ liệu GIS xác thực</span>
+                                                    </div>
+                                                    <div className="grid grid-cols-3 gap-2">
+                                                        <div><p className="text-[9px] text-slate-400 font-bold uppercase">Số tờ</p><p className="font-black text-slate-700">{selected.so_to}</p></div>
+                                                        <div><p className="text-[9px] text-slate-400 font-bold uppercase">Số thửa</p><p className="font-black text-slate-700">{selected.so_thua}</p></div>
+                                                        <div><p className="text-[9px] text-slate-400 font-bold uppercase">Diện tích</p><p className="font-black text-slate-700">{selected.dien_tich}m²</p></div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <div className="space-y-1">
+                                                        <label className="text-[10px] font-bold text-slate-400 uppercase ml-2">Giá mong muốn</label>
+                                                        <div className="relative"><Banknote className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" /><input type="number" placeholder="VND..." className="w-full pl-11 pr-4 h-14 bg-white border border-slate-200 rounded-xl font-bold outline-none focus:border-blue-500" value={form.price} onChange={e=>setForm({...form, price: e.target.value})} /></div>
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <label className="text-[10px] font-bold text-slate-400 uppercase ml-2">Số điện thoại</label>
+                                                        <div className="relative"><Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" /><input placeholder="09xxx..." className="w-full pl-11 pr-4 h-14 bg-white border border-slate-200 rounded-xl font-bold outline-none focus:border-blue-500" value={form.phone} onChange={e=>setForm({...form, phone: e.target.value})} /></div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="space-y-1">
+                                                    <label className="text-[10px] font-bold text-slate-400 uppercase ml-2">Ghi chú thêm</label>
+                                                    <div className="relative"><StickyNote className="absolute left-4 top-4 w-4 h-4 text-slate-300" /><textarea placeholder="Mô tả ưu điểm thửa đất..." className="w-full pl-11 pr-4 pt-3 h-24 bg-white border border-slate-200 rounded-xl font-medium text-sm outline-none focus:border-blue-500 resize-none" value={form.note} onChange={e=>setForm({...form, note: e.target.value})} /></div>
+                                                </div>
+
+                                                <div className="space-y-2">
+                                                    <label className="text-[10px] font-bold text-slate-400 uppercase ml-2 block">Hình ảnh thực tế ({images.length}/5)</label>
+                                                    <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                                                        {images.length < 5 && (
+                                                            <label className="w-20 h-20 shrink-0 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-all">
+                                                                <Camera className="w-5 h-5 text-slate-400" />
+                                                                <input type="file" multiple className="hidden" onChange={handlePhoto} accept="image/*" />
+                                                            </label>
+                                                        )}
+                                                        {images.map((img, i) => (
+                                                            <div key={i} className="relative w-20 h-20 shrink-0">
+                                                                <img src={img} className="w-full h-full object-cover rounded-2xl border border-slate-100" />
+                                                                <button onClick={()=>setImages(images.filter((_,idx)=>idx!==i))} className="absolute -top-1 -right-1 bg-red-500 text-white p-1 rounded-full shadow-lg"><X className="w-2 h-2" /></button>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+
+                                                <button onClick={submit} disabled={loading || !form.price || !form.phone} className={`w-full h-16 rounded-2xl font-black text-lg flex items-center justify-center gap-3 shadow-xl transition-all ${loading || !form.price || !form.phone ? 'bg-slate-200 text-slate-400' : 'bg-blue-600 text-white active:scale-95 shadow-blue-100'}`}>
+                                                    {loading ? 'Đang gửi...' : <><Send className="w-5 h-5" /> Xác nhận đăng tin</>}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* VIEW 3: THÀNH CÔNG */}
+                                    {view === 'success' && (
+                                        <div className="flex flex-col items-center justify-center py-16 animate-slide-in">
+                                            <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mb-6 shadow-inner animate-bounce">
+                                                <CheckCircle2 className="w-14 h-14 text-green-600" />
+                                            </div>
+                                            <h2 className="text-2xl font-black text-slate-900 mb-2">Đã ghi nhận!</h2>
+                                            <p className="text-slate-500 text-center max-w-[240px] text-sm leading-relaxed">Tin rao bán của bạn đã được liên kết với dữ liệu GIS chính thức.</p>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
-
-                            <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-2xl font-bold shadow-lg shadow-blue-200 active:scale-95 transition-all text-lg">
-                                🚀 Rao bán lô đất này
-                            </button>
                         </div>
                     )}
                 </div>

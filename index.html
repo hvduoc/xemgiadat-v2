@@ -14,13 +14,36 @@
         };
     </script>
     <!-- PMTiles: try jsDelivr first, then unpkg fallback -->
-    <script src="https://cdn.jsdelivr.net/npm/pmtiles@3/dist/index.js" onload="window.__trackCDN('pmtiles', true)" onerror="window.__trackCDN('pmtiles-jsDelivr', false); fetch('https://unpkg.com/pmtiles@3/dist/index.js').then(r => r.text()).then(code => {eval(code); window.__trackCDN('pmtiles-fallback', true)}).catch(e => window.__trackCDN('pmtiles-fallback', false))"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pmtiles@3/dist/index.js" onload="window.__trackCDN('pmtiles', true); console.log('[PMTiles] Loaded. Checking globals:', Object.keys(window).filter(k => k.toLowerCase().includes('pmtiles') || k === 'PMTiles' || k === 'pmtilesLib'))" onerror="window.__trackCDN('pmtiles-jsDelivr', false); const fallbackScript = document.createElement('script'); fallbackScript.src = 'https://unpkg.com/pmtiles@3/dist/index.js'; fallbackScript.onload = () => { window.__trackCDN('pmtiles-fallback', true); console.log('[PMTiles] Fallback loaded'); }; fallbackScript.onerror = () => window.__trackCDN('pmtiles-fallback', false); document.head.appendChild(fallbackScript);"></script>
     <link href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
     <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.js" onload="window.__trackCDN('maplibregl', true)" onerror="window.__trackCDN('maplibregl', false)"></script>
     <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js" onload="window.__trackCDN('react', true)" onerror="window.__trackCDN('react', false)"></script>
     <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js" onload="window.__trackCDN('react-dom', true)" onerror="window.__trackCDN('react-dom', false)"></script>
     <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.23.5/babel.min.js" onload="window.__trackCDN('babel', true)" onerror="window.__trackCDN('babel', false)"></script>
     <script src="https://cdn.tailwindcss.com" onerror="console.warn('[CDN] Tailwind CDN failed')"></script>
+
+    <script>
+        // Auto-detect PMTiles global - v3 may export as different name
+        setTimeout(() => {
+            const candidates = ['pmtiles', 'PMTiles', 'pmtilesLib', 'PmTiles'];
+            let found = false;
+            
+            for (const name of candidates) {
+                if (window[name] !== undefined && !window.pmtiles) {
+                    window.pmtiles = window[name];
+                    window.__pmtiles_global_found = name;
+                    console.log(`[PMTiles] Auto-detected: window.${name} → window.pmtiles`);
+                    found = true;
+                    break;
+                }
+            }
+            
+            if (!found) {
+                const pmKeys = Object.keys(window).filter(k => /pmtiles|protocol/i.test(k));
+                console.warn('[PMTiles] ⚠ Could not auto-detect PMTiles. Found keys:', pmKeys.slice(0, 5));
+            }
+        }, 100);
+    </script>
 
     <style>
         body, html, #root { 
@@ -131,6 +154,25 @@
             }
         };
         setupSafeLocation();
+        
+        // Delayed re-check for PMTiles after auto-detection script runs
+        setTimeout(() => {
+            if (!window.pmtiles) {
+                console.warn('[INIT] PMTiles still not available after auto-detection');
+            } else {
+                // PMTiles was detected - try to register protocol
+                if (window.maplibregl && !window.__pmtiles_protocol_registered) {
+                    try {
+                        const protocol = new window.pmtiles.Protocol();
+                        window.maplibregl.addProtocol("pmtiles", protocol.tile);
+                        window.__pmtiles_protocol_registered = true;
+                        console.log('[INIT] ✓ PMTiles protocol registered (via delayed init)');
+                    } catch (e) {
+                        console.error('[INIT] ✗ Delayed PMTiles registration failed:', e.message);
+                    }
+                }
+            }
+        }, 150);
 
         /**
          * 2. MAP CONTROLLER (Inline Implementation)
@@ -399,7 +441,7 @@
                             'osm': { type: 'raster', tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], tileSize: 256, attribution: '© OSM' },
                             'parcels': {
                                 type: 'vector',
-                                url: 'pmtiles://https://xemgiadat.com/tiles/danang_parcels_final.pmtiles',
+                                url: 'pmtiles://xemgiadat.com/tiles/danang_parcels_final.pmtiles',
                                 minzoom: 10, maxzoom: 20
                             }
                         },

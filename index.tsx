@@ -1,5 +1,5 @@
-import React from 'react';
-import ReactDOM from 'react-dom/client';
+const React = (window as any).React;
+const ReactDOM = (window as any).ReactDOM;
 
 /**
  * CẦU CHÌ BẢO VỆ: bypassLocation

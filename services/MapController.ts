@@ -1,10 +1,10 @@
-class MapController {
+window.MapController = class MapController {
+  private static instance: any = null;
   private map: any;
   private protocol: any;
 
   constructor() {
-    const pmtiles = (window as any).pmtiles || (window as any).PMTiles;
-    this.protocol = new pmtiles.Protocol();
+    this.protocol = new (window as any).pmtiles.Protocol();
     const mlgl = (window as any).maplibregl;
     if (mlgl.addProtocol && (!mlgl._protocols || !mlgl._protocols.pmtiles)) {
       mlgl.addProtocol('pmtiles', (params: any, callback: any) => {
@@ -14,6 +14,24 @@ class MapController {
     
     // Đảm bảo worker không truy cập domain hiện tại để tránh lỗi CORS/Location
     mlgl.workerUrl = 'https://unpkg.com/maplibre-gl@5.1.0/dist/maplibre-gl-csp-worker.js';
+  }
+
+  static setInstance(instance: any) {
+    MapController.instance = instance;
+  }
+
+  static flyToParcel(soTo: string, soThua: string) {
+    if (!MapController.instance) return null;
+    return MapController.instance.flyToParcel(soTo, soThua);
+  }
+
+  static flyToCoordinates(lng: number, lat: number, zoom: number = 18) {
+    if (!MapController.instance) return;
+    MapController.instance.flyToCoordinates(lng, lat, zoom);
+  }
+
+  static getMap() {
+    return MapController.instance ? MapController.instance.getMap() : null;
   }
 
   init(container: HTMLDivElement, initialView: any, onParcelClick: (data: any) => void) {
@@ -102,6 +120,87 @@ class MapController {
     const StyleEngine = (window as any).StyleEngine;
     this.map.setFilter(StyleEngine.LAYER_HIGHLIGHT, ['==', ['id'], id]);
   }
-}
 
-(window as any).MapController = MapController;
+    /**
+     * Bay đến thửa đất theo số tờ và số thửa
+     * @param soTo - Số tờ bản đồ
+     * @param soThua - Số thửa
+     */
+    async flyToParcel(soTo: string, soThua: string) {
+      if (!this.map) return;
+    
+      const StyleEngine = (window as any).StyleEngine;
+    
+      // Tìm feature trong viewport hiện tại
+      const features = this.map.querySourceFeatures(StyleEngine.SOURCE_ID, {
+        sourceLayer: StyleEngine.SOURCE_LAYER
+      });
+
+      const targetFeature = features.find((f: any) => {
+        const props = f.properties || {};
+        const fSoTo = props['Số hiệu tờ bản đồ'] || props.so_to || '';
+        const fSoThua = props['Số thửa'] || props.so_thua || '';
+        return fSoTo === soTo && fSoThua === soThua;
+      });
+
+      if (targetFeature) {
+        // Tính tọa độ trung tâm của polygon
+        let center: [number, number] = [108.2022, 16.0544];
+      
+        if (targetFeature.geometry?.type === 'Polygon' && targetFeature.geometry.coordinates?.[0]?.[0]) {
+          const coords = targetFeature.geometry.coordinates[0];
+          const lngs = coords.map((c: any) => c[0]);
+          const lats = coords.map((c: any) => c[1]);
+          center = [
+            (Math.min(...lngs) + Math.max(...lngs)) / 2,
+            (Math.min(...lats) + Math.max(...lats)) / 2
+          ];
+        }
+
+        // Bay đến và zoom vào
+        this.map.flyTo({
+          center,
+          zoom: 18,
+          duration: 1500,
+          essential: true
+        });
+
+        // Highlight thửa đất
+        const parcelId = targetFeature.id || targetFeature.properties?.OBJECTID;
+        if (parcelId) {
+          setTimeout(() => {
+            this.highlightParcel(parcelId);
+          }, 1600);
+        }
+      
+        return targetFeature;
+      } else {
+        console.warn(`Không tìm thấy thửa ${soThua}, tờ ${soTo} trong khu vực hiện tại. Hãy zoom ra hoặc pan map.`);
+        return null;
+      }
+    }
+
+    /**
+     * Bay đến tọa độ và tìm thửa đất gần nhất
+     * @param lng - Kinh độ
+     * @param lat - Vĩ độ
+     * @param zoom - Mức zoom (mặc định 18)
+     */
+    flyToCoordinates(lng: number, lat: number, zoom: number = 18) {
+      if (!this.map) return;
+    
+      this.map.flyTo({
+        center: [lng, lat],
+        zoom,
+        duration: 1500,
+        essential: true
+      });
+    }
+
+    /**
+     * Lấy instance map để sử dụng external
+     */
+    getMap() {
+      return this.map;
+    }
+};

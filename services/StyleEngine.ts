@@ -1,5 +1,5 @@
 
-class StyleEngine {
+window.StyleEngine = class StyleEngine {
   static readonly SOURCE_ID = 'danang-parcels';
   static readonly SOURCE_LAYER = 'default';
   static readonly PMTILES_URL = 'https://xemgiadat.com/tiles/danang_parcels_final.pmtiles';
@@ -60,6 +60,4 @@ class StyleEngine {
       filter: ['==', ['id'], '']
     });
   }
-}
-
-(window as any).StyleEngine = StyleEngine;
+};

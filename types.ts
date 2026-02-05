@@ -20,5 +20,3 @@ declare global {
     relevance: number;
   }
 }
-
-export {};

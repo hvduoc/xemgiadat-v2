@@ -1,8 +1,10 @@
 
-import React, { useEffect, useRef, useState, useMemo } from 'react';
-import { 
-  MapPin, 
-  Share2, 
+const React = (window as any).React;
+const { useEffect, useRef, useState, useMemo } = React;
+const lucide = (window as any).lucideReact || {};
+const {
+  MapPin,
+  Share2,
   X,
   ChevronUp,
   Copy,
@@ -15,16 +17,25 @@ import {
   Send,
   FileText,
   Info
-} from 'lucide-react';
+} = lucide;
 
-const App: React.FC = () => {
+const App = () => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const MapController = (window as any).MapController;
-  const controller = useMemo(() => new MapController(), []);
+  const controller = useMemo(() => {
+    const instance = new MapController();
+    MapController.setInstance(instance);
+    return instance;
+  }, []);
+    const [searchService, setSearchService] = useState<any>(null);
   
-  const [selectedParcel, setSelectedParcel] = useState<ParcelData | null>(null);
-  const [view, setView] = useState<'info' | 'listing' | 'success'>('info');
-  const [panelState, setPanelState] = useState<'peek' | 'expanded'>('expanded');
+  const [selectedParcel, setSelectedParcel] = useState(null as ParcelData | null);
+  const [view, setView] = useState('info' as 'info' | 'listing' | 'success');
+  const [panelState, setPanelState] = useState('expanded' as 'peek' | 'expanded');
+  
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchResults, setSearchResults] = useState<ParcelData[]>([]);
+    const [isSearching, setIsSearching] = useState(false);
   
   const [listingForm, setListingForm] = useState({
     price: '',
@@ -38,6 +49,7 @@ const App: React.FC = () => {
     if (!mapContainerRef.current) return;
     const LinkService = (window as any).LinkService;
     const PriceService = (window as any).PriceService;
+      const SearchService = (window as any).SearchService;
     const initial = LinkService.getParams();
     
     controller.init(mapContainerRef.current, initial, (data: any) => {
@@ -60,9 +72,51 @@ const App: React.FC = () => {
       // Reset form khi chọn thửa mới
       setListingForm({ price: '', phone: '', note: '', images: [] });
     });
+    
+      // Khởi tạo SearchService sau khi map đã load
+      const service = new SearchService(controller);
+      setSearchService(service);
+    
+      return () => {
+        service?.terminate();
+      };
   }, [controller]);
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleSearch = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!searchQuery.trim() || !searchService) return;
+    
+      setIsSearching(true);
+      try {
+        const results = await searchService.searchParcels(searchQuery);
+        setSearchResults(results);
+      } catch (err) {
+        console.error('Search failed:', err);
+        setSearchResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    };
+
+    const handleSelectSearchResult = async (parcel: ParcelData) => {
+      // Bay đến thửa đất
+      await controller.flyToParcel(parcel.so_to, parcel.so_thua);
+    
+      // Clear search
+      setSearchQuery('');
+      setSearchResults([]);
+    
+      // Set selected parcel sau một chút để map kịp bay đến
+      setTimeout(() => {
+        const PriceService = (window as any).PriceService;
+        parcel.gia_uoc_tinh = PriceService.calculateTotalValue(parcel);
+        setSelectedParcel(parcel);
+        setView('info');
+        setPanelState('expanded');
+      }, 1800);
+    };
+
+  const handleImageUpload = async (e: any) => {
     if (e.target.files) {
       // Fix: Cast Array.from result to File[] to ensure the map function receives typed File objects
       const ImageService = (window as any).ImageService;
@@ -87,6 +141,66 @@ const App: React.FC = () => {
 
   return (
     <div className="relative w-full h-full bg-slate-900 overflow-hidden">
+        {/* Search Bar */}
+        <div className="absolute top-4 left-4 right-4 z-50">
+          <form onSubmit={handleSearch} className="bg-white rounded-2xl shadow-lg border border-slate-200">
+            <div className="flex items-center px-4 py-3">
+              <svg className="w-5 h-5 text-slate-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <circle cx="11" cy="11" r="8" strokeWidth="2"/>
+                <path d="m21 21-4.3-4.3" strokeWidth="2"/>
+              </svg>
+              <input
+                type="text"
+                placeholder="Tìm số tờ, số thửa..."
+                className="flex-1 outline-none text-slate-900 font-semibold placeholder:text-slate-400"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              {searchQuery && (
+                <button type="button" onClick={() => { setSearchQuery(''); setSearchResults([]); }} className="ml-2 p-1">
+                  <X className="w-5 h-5 text-slate-400" />
+                </button>
+              )}
+            </div>
+          
+            {/* Search Results Dropdown */}
+            {(isSearching || searchResults.length > 0) && (
+              <div className="border-t border-slate-100 max-h-64 overflow-y-auto">
+                {isSearching ? (
+                  <div className="px-4 py-8 text-center text-slate-500">
+                    <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-slate-900"></div>
+                    <p className="mt-2 text-sm">Đang tìm kiếm...</p>
+                  </div>
+                ) : searchResults.length === 0 ? (
+                  <div className="px-4 py-6 text-center text-slate-500 text-sm">
+                    Không tìm thấy kết quả. Hãy zoom ra hoặc pan map.
+                  </div>
+                ) : (
+                  searchResults.map((parcel, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => handleSelectSearchResult(parcel)}
+                      className="w-full px-4 py-3 hover:bg-slate-50 text-left border-b border-slate-100 last:border-0 transition-colors"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-bold text-slate-900">
+                            Tờ {parcel.so_to} / Thửa {parcel.so_thua}
+                          </p>
+                          <p className="text-xs text-slate-500 mt-1">
+                            {parcel.dia_chi} • {parcel.dien_tich} m²
+                          </p>
+                        </div>
+                        <MapPin className="w-4 h-4 text-red-500 flex-shrink-0" />
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+          </form>
+        </div>
+
       <div ref={mapContainerRef} className="w-full h-full" />
 
       {selectedParcel && (

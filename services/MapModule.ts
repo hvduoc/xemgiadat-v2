@@ -5,8 +5,7 @@ class MapModule {
 
   constructor() {
     try {
-      const pmtiles = (window as any).pmtiles || (window as any).PMTiles;
-      this.protocol = new pmtiles.Protocol();
+      this.protocol = new (window as any).pmtiles.Protocol();
       const mlgl = (window as any).maplibregl;
       if (mlgl.addProtocol && (!mlgl._protocols || !mlgl._protocols.pmtiles)) {
         mlgl.addProtocol('pmtiles', (params: any, callback: any) => {

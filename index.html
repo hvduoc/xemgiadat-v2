@@ -122,6 +122,29 @@
         /**
          * 2. MAP CONTROLLER (Inline Implementation)
          */
+        const normalizeParcelProps = (props) => {
+            const so_thua = props['Số thửa'] || props.soThua || props.so_thua || '';
+            const so_to = props['Số hiệu tờ bản đồ'] || props.soTo || props.so_to || '';
+            const muc_dich = props['Ký hiệu mục đích sử dụng'] || props.loaiDat || props.muc_dich || '';
+            const dien_tich_raw = props['Diện tích'] ?? props.dienTich ?? props.dien_tich ?? props.area ?? props.SHAPE_Area ?? 0;
+            const dien_tich = parseFloat(dien_tich_raw) || 0;
+            const dia_chi_raw = props['Địa chỉ'] || props.diaChi || props.dia_chi || '';
+            const dia_chi = dia_chi_raw && dia_chi_raw !== 'Null' ? dia_chi_raw : 'Chưa có';
+            const ma_xa = props['Mã xã'] || props.maXa || props.ma_xa || '';
+            const object_id = props.OBJECTID || props.objectid || props.id || '';
+            return {
+                so_thua,
+                so_to,
+                muc_dich,
+                dien_tich,
+                dia_chi,
+                ma_xa,
+                object_id,
+                area: props.area || 0,
+                shape_area: props.SHAPE_Area || 0
+            };
+        };
+
         window.MapController = class MapController {
             static instance = null;
 
@@ -151,9 +174,8 @@
 
                 const targetFeature = features.find(f => {
                     const props = f.properties || {};
-                    const fSoTo = props['Số hiệu tờ bản đồ'] || props.so_to || '';
-                    const fSoThua = props['Số thửa'] || props.so_thua || '';
-                    return fSoTo === soTo && fSoThua === soThua;
+                    const normalized = normalizeParcelProps(props);
+                    return normalized.so_to === soTo && normalized.so_thua === soThua;
                 });
 
                 if (!targetFeature) return null;
@@ -242,8 +264,9 @@
                         features.forEach(f => {
                             const props = f.properties || {};
                             const id = f.id || props.OBJECTID;
+                            const normalized = normalizeParcelProps(props);
                             
-                            if (id && props['Số thửa'] && props['Số hiệu tờ bản đồ']) {
+                            if (id && normalized.so_thua && normalized.so_to) {
                                 let coordinates = [108.2022, 16.0544];
                                 if (f.geometry?.type === 'Polygon' && f.geometry.coordinates?.[0]?.[0]) {
                                     const coords = f.geometry.coordinates[0];
@@ -257,12 +280,13 @@
 
                                 this.featureCache.set(id, {
                                     id: id,
-                                    so_thua: props['Số thửa'] || '',
-                                    so_to: props['Số hiệu tờ bản đồ'] || '',
-                                    dien_tich: parseFloat(props['Diện tích'] || 0),
-                                    muc_dich: props['Ký hiệu mục đích sử dụng'] || '',
-                                    ma_xa: props['Mã xã'] || '',
-                                    dia_chi: props['Địa chỉ'] !== 'Null' ? props['Địa chỉ'] : 'TP. Đà Nẵng',
+                                    so_thua: normalized.so_thua,
+                                    so_to: normalized.so_to,
+                                    dien_tich: normalized.dien_tich,
+                                    muc_dich: normalized.muc_dich,
+                                    ma_xa: normalized.ma_xa,
+                                    dia_chi: normalized.dia_chi,
+                                    object_id: normalized.object_id,
                                     coordinates
                                 });
                             }
@@ -421,14 +445,17 @@
                 // Parcel click handler
                 map.on('click', 'parcels-fill-clickable', (e) => {
                     if (!e.features?.[0]) return;
-                    const props = e.features[0].properties;
+                    const props = e.features[0].properties || {};
+                    const normalized = normalizeParcelProps(props);
                     setSelected({
-                        id: e.features[0].id || props.OBJECTID || '',
-                        so_thua: props['Số thửa'] || '',
-                        so_to: props['Số hiệu tờ bản đồ'] || '',
-                        dien_tich: parseFloat(props['Diện tích'] || 0),
-                        muc_dich: props['Ký hiệu mục đích sử dụng'] || '',
-                        dia_chi: props['Địa chỉ'] !== 'Null' ? props['Địa chỉ'] : 'TP. Đà Nẵng'
+                        id: e.features[0].id || normalized.object_id || '',
+                        so_thua: normalized.so_thua,
+                        so_to: normalized.so_to,
+                        dien_tich: normalized.dien_tich,
+                        muc_dich: normalized.muc_dich,
+                        dia_chi: normalized.dia_chi,
+                        ma_xa: normalized.ma_xa,
+                        object_id: normalized.object_id
                     });
                     setView('info');
                 });
@@ -506,7 +533,9 @@
                     so_to: parcel.so_to,
                     dien_tich: parcel.dien_tich,
                     muc_dich: parcel.muc_dich,
-                    dia_chi: parcel.dia_chi
+                    dia_chi: parcel.dia_chi,
+                    ma_xa: parcel.ma_xa,
+                    object_id: parcel.object_id
                 });
                 setView('info');
 
@@ -624,6 +653,17 @@
                                                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
                                                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Mục đích</p>
                                                     <p className="text-lg font-black text-slate-800">{selected.muc_dich}</p>
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-2 gap-3 mb-4">
+                                                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Mã xã</p>
+                                                    <p className="text-lg font-black text-slate-800">{selected.ma_xa || 'N/A'}</p>
+                                                </div>
+                                                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">OBJECTID</p>
+                                                    <p className="text-lg font-black text-slate-800">{selected.object_id || 'N/A'}</p>
                                                 </div>
                                             </div>
 

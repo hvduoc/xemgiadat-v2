@@ -446,16 +446,28 @@
                 map.on('click', 'parcels-fill-clickable', (e) => {
                     if (!e.features?.[0]) return;
                     const props = e.features[0].properties || {};
+                    
+                    // Debug: Log raw properties
+                    console.log('[Click] Raw properties:', props);
+                    console.log('[Click] All keys:', Object.keys(props));
+                    
                     const normalized = normalizeParcelProps(props);
+                    console.log('[Click] Normalized:', normalized);
+                    
+                    // Highlight parcel
+                    const parcelId = e.features[0].id || normalized.object_id;
+                    if (parcelId) {
+                        map.setFilter('parcels-highlight', ['==', ['id'], parcelId]);
+                        map.setFilter('parcels-highlight-fill', ['==', ['id'], parcelId]);
+                    }
+                    
                     setSelected({
                         id: e.features[0].id || normalized.object_id || '',
                         so_thua: normalized.so_thua,
                         so_to: normalized.so_to,
                         dien_tich: normalized.dien_tich,
                         muc_dich: normalized.muc_dich,
-                        dia_chi: normalized.dia_chi,
-                        ma_xa: normalized.ma_xa,
-                        object_id: normalized.object_id
+                        dia_chi: normalized.dia_chi
                     });
                     setView('info');
                 });
@@ -533,9 +545,7 @@
                     so_to: parcel.so_to,
                     dien_tich: parcel.dien_tich,
                     muc_dich: parcel.muc_dich,
-                    dia_chi: parcel.dia_chi,
-                    ma_xa: parcel.ma_xa,
-                    object_id: parcel.object_id
+                    dia_chi: parcel.dia_chi
                 });
                 setView('info');
 
@@ -645,36 +655,15 @@
                                                 <button onClick={() => setSelected(null)} className="p-2 bg-slate-100 rounded-full"><Icons.X /></button>
                                             </div>
 
-                                            <div className="grid grid-cols-2 gap-3 mb-4">
+                                            <div className="grid grid-cols-2 gap-3 mb-6">
                                                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
                                                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Diện tích</p>
-                                                    <p className="text-lg font-black text-slate-800">{selected.dien_tich} m²</p>
+                                                    <p className="text-lg font-black text-slate-800">{selected.dien_tich > 0 ? selected.dien_tich.toFixed(1) : '0'} m²</p>
                                                 </div>
                                                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
                                                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Mục đích</p>
-                                                    <p className="text-lg font-black text-slate-800">{selected.muc_dich}</p>
+                                                    <p className="text-sm font-black text-slate-800">{selected.muc_dich || 'Chưa rõ'}</p>
                                                 </div>
-                                            </div>
-
-                                            <div className="grid grid-cols-2 gap-3 mb-4">
-                                                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Mã xã</p>
-                                                    <p className="text-lg font-black text-slate-800">{selected.ma_xa || 'N/A'}</p>
-                                                </div>
-                                                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">OBJECTID</p>
-                                                    <p className="text-lg font-black text-slate-800">{selected.object_id || 'N/A'}</p>
-                                                </div>
-                                            </div>
-
-                                            <div className="bg-yellow-50 border border-yellow-200 p-5 rounded-2xl mb-6 flex items-center justify-between">
-                                                <div>
-                                                    <span className="text-[10px] font-bold text-yellow-600 uppercase tracking-widest">Giá định giá 2025</span>
-                                                    <p className="text-3xl font-black text-yellow-700 leading-none mt-1">
-                                                        {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(selected.dien_tich * 45000000)}
-                                                    </p>
-                                                </div>
-                                                <Icons.Banknote />
                                             </div>
 
                                             <button onClick={() => setView('form')} className="w-full h-16 bg-slate-900 text-white rounded-2xl font-black text-lg flex items-center justify-center gap-3 shadow-xl active:scale-95 transition-all">

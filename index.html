@@ -148,16 +148,17 @@
          * 2. MAP CONTROLLER (Inline Implementation)
          */
         const normalizeParcelProps = (props) => {
-            // Try all possible key variations
-            const so_thua = props['Số thửa'] || props['So thua'] || props.soThua || props.so_thua || props.SOTHUA || '';
-            const so_to = props['Số hiệu tờ bản đồ'] || props['So hieu to ban do'] || props.soTo || props.so_to || props.SOTO || '';
-            const muc_dich = props['Ký hiệu mục đích sử dụng'] || props['Ky hieu muc dich su dung'] || props.loaiDat || props.muc_dich || props.MUCDICH || '';
-            const dien_tich_raw = props['Diện tích'] || props['Dien tich'] || props.dienTich || props.dien_tich || props.DIENTICH || props.area || props.SHAPE_Area || props.Shape_Area || 0;
+            // PMTiles actual property names (from log): SoThuTuThua, SoHieuToBanDo, DienTich, KyHieuMucDichSuDung
+            const so_thua = String(props.SoThuTuThua || props['Số thửa'] || props.soThua || props.so_thua || '');
+            const so_to = String(props.SoHieuToBanDo || props['Số hiệu tờ bản đồ'] || props.soTo || props.so_to || '');
+            const muc_dich = props.KyHieuMucDichSuDung || props['Ký hiệu mục đích sử dụng'] || props.loaiDat || props.muc_dich || 'Chưa rõ';
+            const dien_tich_raw = props.DienTich ?? props['Diện tích'] ?? props.dienTich ?? props.dien_tich ?? props.area ?? props.SHAPE_Area ?? props.Shape_Area ?? 0;
             const dien_tich = parseFloat(dien_tich_raw) || 0;
-            const dia_chi_raw = props['Địa chỉ'] || props['Dia chi'] || props.diaChi || props.dia_chi || props.DIACHI || '';
-            const dia_chi = dia_chi_raw && dia_chi_raw !== 'Null' && dia_chi_raw !== 'null' ? dia_chi_raw : 'Chưa có';
-            const ma_xa = props['Mã xã'] || props['Ma xa'] || props.maXa || props.ma_xa || props.MAXA || '';
+            const dia_chi_raw = props['Địa chỉ'] || props.diaChi || props.dia_chi || props.DiaChi || '';
+            const dia_chi = (dia_chi_raw && dia_chi_raw !== 'Null' && dia_chi_raw !== 'null') ? dia_chi_raw : 'Chưa có';
+            const ma_xa = String(props.MaXa || props['Mã xã'] || props.maXa || props.ma_xa || '');
             const object_id = props.OBJECTID || props.objectid || props.ObjectId || props.id || props.ID || '';
+            
             return {
                 so_thua,
                 so_to,
@@ -165,9 +166,7 @@
                 dien_tich,
                 dia_chi,
                 ma_xa,
-                object_id,
-                area: props.area || 0,
-                shape_area: props.SHAPE_Area || props.Shape_Area || 0
+                object_id
             };
         };
 
@@ -207,8 +206,8 @@
             selectedFeatureForDimensions = null;
             if (map && map.getLayer) {
                 try {
-                    map.setFilter('parcels-highlight', ['==', ['id'], -1]);
-                    map.setFilter('parcels-highlight-fill', ['==', ['id'], -1]);
+                    map.setFilter('parcels-highlight', ['==', 'OBJECTID', -1]);
+                    map.setFilter('parcels-highlight-fill', ['==', 'OBJECTID', -1]);
                 } catch (e) {
                     console.warn('[Cleanup] Could not clear highlight:', e);
                 }
@@ -352,8 +351,8 @@
                 const parcelId = targetFeature.id || targetFeature.properties?.OBJECTID;
                 if (parcelId) {
                     setTimeout(() => {
-                        this.map.setFilter('parcels-highlight', ['==', ['id'], parcelId]);
-                        this.map.setFilter('parcels-highlight-fill', ['==', ['id'], parcelId]);
+                        this.map.setFilter('parcels-highlight', ['==', 'OBJECTID', parcelId]);
+                        this.map.setFilter('parcels-highlight-fill', ['==', 'OBJECTID', parcelId]);
                     }, 1600);
                 }
 
@@ -587,9 +586,35 @@
                         layers: [
                             { id: 'osm', type: 'raster', source: 'osm' },
                             { id: 'parcels-fill-clickable', type: 'fill', source: 'parcels', 'source-layer': 'default', paint: { 'fill-color': 'transparent' } },
-                            { id: 'parcels-line', type: 'line', source: 'parcels', 'source-layer': 'default', paint: { 'line-color': '#3B82F6', 'line-width': 1.5 } },
-                            { id: 'parcels-highlight-fill', type: 'fill', source: 'parcels', 'source-layer': 'default', filter: ['==', ['id'], -1], paint: { 'fill-color': '#FBBF24', 'fill-opacity': 0.5 } },
-                            { id: 'parcels-highlight', type: 'line', source: 'parcels', 'source-layer': 'default', filter: ['==', ['id'], -1], paint: { 'line-color': '#F59E0B', 'line-width': 5 } }
+                            { 
+                                id: 'parcels-line', 
+                                type: 'line', 
+                                source: 'parcels', 
+                                'source-layer': 'default', 
+                                paint: { 
+                                    'line-color': '#3B82F6', 
+                                    'line-width': [
+                                        'interpolate',
+                                        ['exponential', 1.5],
+                                        ['zoom'],
+                                        12, 0.3,
+                                        14, 0.5,
+                                        16, 0.8,
+                                        18, 1.2
+                                    ],
+                                    'line-opacity': [
+                                        'interpolate',
+                                        ['linear'],
+                                        ['zoom'],
+                                        12, 0.4,
+                                        14, 0.6,
+                                        16, 0.8,
+                                        18, 1
+                                    ]
+                                }
+                            },
+                            { id: 'parcels-highlight-fill', type: 'fill', source: 'parcels', 'source-layer': 'default', filter: ['==', 'OBJECTID', -1], paint: { 'fill-color': '#FBBF24', 'fill-opacity': 0.5 } },
+                            { id: 'parcels-highlight', type: 'line', source: 'parcels', 'source-layer': 'default', filter: ['==', 'OBJECTID', -1], paint: { 'line-color': '#F59E0B', 'line-width': 5 } }
                         ]
                     },
                     center: [108.2022, 16.0544],
@@ -622,16 +647,14 @@
                     const normalized = normalizeParcelProps(props);
                     console.log('[Click] Normalized data:', normalized);
                     
-                    // Highlight parcel - use feature.id directly
-                    const parcelId = clickedFeature.id;
-                    if (parcelId !== undefined && parcelId !== null) {
-                        console.log('[Highlight] Setting highlight for ID:', parcelId, '(type:', typeof parcelId, ')');
+                    // Highlight parcel - use OBJECTID since feature.id is undefined
+                    const objectId = props.OBJECTID;
+                    if (objectId !== undefined && objectId !== null) {
+                        console.log('[Highlight] ✅ Setting highlight for OBJECTID:', objectId);
                         
-                        // Try both number and string to ensure compatibility
-                        map.setPaintProperty('parcels-highlight', 'line-color', '#F59E0B');
-                        map.setPaintProperty('parcels-highlight', 'line-width', 5);
-                        map.setFilter('parcels-highlight', ['==', ['id'], parcelId]);
-                        map.setFilter('parcels-highlight-fill', ['==', ['id'], parcelId]);
+                        // Set filter using OBJECTID property
+                        map.setFilter('parcels-highlight', ['==', 'OBJECTID', objectId]);
+                        map.setFilter('parcels-highlight-fill', ['==', 'OBJECTID', objectId]);
                         
                         // Verify filter was set
                         setTimeout(() => {
@@ -639,23 +662,24 @@
                             console.log('[Highlight] Current filter:', JSON.stringify(filter));
                         }, 100);
                     } else {
-                        console.warn('[Highlight] ⚠️ No valid parcelId found');
+                        console.warn('[Highlight] ⚠️ No OBJECTID found in properties');
                     }
                     
                     // Draw dimension labels on polygon edges
                     drawDimensions(clickedFeature, map);
                     
-                    // Set selected state with data
+                    // Set selected state with ACTUAL data
                     const selectedData = {
-                        id: clickedFeature.id || normalized.object_id || '',
-                        so_thua: normalized.so_thua || 'N/A',
-                        so_to: normalized.so_to || 'N/A',
-                        dien_tich: normalized.dien_tich || 0,
-                        muc_dich: normalized.muc_dich || 'Chưa rõ',
-                        dia_chi: normalized.dia_chi || 'Chưa có'
+                        id: normalized.object_id || '',
+                        so_thua: normalized.so_thua,
+                        so_to: normalized.so_to,
+                        dien_tich: normalized.dien_tich,
+                        muc_dich: normalized.muc_dich,
+                        dia_chi: normalized.dia_chi,
+                        ma_xa: normalized.ma_xa
                     };
                     
-                    console.log('[Click] Setting selected data:', selectedData);
+                    console.log('[Click] ✅ Setting selected data:', selectedData);
                     setSelected(selectedData);
                     setView('info');
                 });

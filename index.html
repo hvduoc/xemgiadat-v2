@@ -6,6 +6,14 @@
     <title>XemGiaDat V2 - GIS Standalone Pro</title>
     
     <!-- CDNs ĐIỀU KIỆN TIÊN QUYẾT -->
+    <script type="importmap">
+    {
+        "imports": {
+            "pmtiles": "https://unpkg.com/pmtiles@3.2.0/dist/index.js"
+        }
+    }
+    </script>
+    
     <script>
         window.__CDN_LOAD_STATUS__ = {};
         window.__trackCDN = (name, success) => {
@@ -13,13 +21,43 @@
             console.log(`[CDN] ${name}: ${success ? '✓ OK' : '✗ FAILED'}`);
         };
     </script>
-    <!-- Core Libraries (no PMTiles - using OSM raster only) -->
+    
+    <!-- Core Libraries -->
     <link href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
     <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.js" onload="window.__trackCDN('maplibregl', true)" onerror="window.__trackCDN('maplibregl', false)"></script>
     <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js" onload="window.__trackCDN('react', true)" onerror="window.__trackCDN('react', false)"></script>
     <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js" onload="window.__trackCDN('react-dom', true)" onerror="window.__trackCDN('react-dom', false)"></script>
     <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.23.5/babel.min.js" onload="window.__trackCDN('babel', true)" onerror="window.__trackCDN('babel', false)"></script>
     <script src="https://cdn.tailwindcss.com" onerror="console.warn('[CDN] Tailwind CDN failed')"></script>
+    
+    <!-- PMTiles Setup via ES Module -->
+    <script type="module">
+        import * as pmtiles from 'pmtiles';
+        
+        // Expose to window for backward compatibility
+        window.pmtiles = pmtiles;
+        window.__trackCDN('pmtiles', true);
+        console.log('[PMTiles] ✓ Loaded via ES module:', pmtiles);
+        
+        // Register protocol immediately
+        if (window.maplibregl) {
+            const protocol = new pmtiles.Protocol();
+            window.maplibregl.addProtocol("pmtiles", protocol.tile);
+            window.__pmtiles_registered = true;
+            console.log('[PMTiles] ✓ Protocol registered');
+        } else {
+            // Wait for maplibregl to load
+            const checkMapLibre = setInterval(() => {
+                if (window.maplibregl) {
+                    clearInterval(checkMapLibre);
+                    const protocol = new pmtiles.Protocol();
+                    window.maplibregl.addProtocol("pmtiles", protocol.tile);
+                    window.__pmtiles_registered = true;
+                    console.log('[PMTiles] ✓ Protocol registered (delayed)');
+                }
+            }, 100);
+        }
+    </script>
 
     <style>
         body, html, #root { 
@@ -47,7 +85,7 @@
     <div id="root"></div>
 
     <script>
-        console.log('[INIT] XemGiaDat v2 initialization started (OSM Raster mode)');
+        console.log('[INIT] XemGiaDat v2 initialization started (Vector Parcels mode)');
         
         /**
          * 1. CẦU CHÌ BẢO VỆ (SAFE_LOC) - Bypass "Blocked a frame with origin..."
@@ -328,10 +366,23 @@
                     style: {
                         version: 8,
                         sources: {
-                            'osm': { type: 'raster', tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], tileSize: 256, attribution: '© OpenStreetMap contributors' }
+                            'osm': { 
+                                type: 'raster', 
+                                tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], 
+                                tileSize: 256, 
+                                attribution: '© OpenStreetMap contributors' 
+                            },
+                            'parcels': {
+                                type: 'vector',
+                                url: 'pmtiles://https://xemgiadat.com/tiles/danang_parcels_final.pmtiles'
+                            }
                         },
                         layers: [
-                            { id: 'osm', type: 'raster', source: 'osm' }
+                            { id: 'osm', type: 'raster', source: 'osm' },
+                            { id: 'parcels-line', type: 'line', source: 'parcels', 'source-layer': 'default', paint: { 'line-color': '#3B82F6', 'line-width': 1.5 } },
+                            { id: 'parcels-fill-clickable', type: 'fill', source: 'parcels', 'source-layer': 'default', paint: { 'fill-color': 'transparent' } },
+                            { id: 'parcels-highlight', type: 'line', source: 'parcels', 'source-layer': 'default', filter: ['==', ['id'], -1], paint: { 'line-color': '#EF4444', 'line-width': 3 } },
+                            { id: 'parcels-highlight-fill', type: 'fill', source: 'parcels', 'source-layer': 'default', filter: ['==', ['id'], -1], paint: { 'fill-color': '#EF4444', 'fill-opacity': 0.3 } }
                         ]
                     },
                     center: [108.2022, 16.0544],
@@ -342,6 +393,25 @@
 
                 mapRef.current = map;
                 
+                // Parcel click handler
+                map.on('click', 'parcels-fill-clickable', (e) => {
+                    if (!e.features?.[0]) return;
+                    const props = e.features[0].properties;
+                    setSelected({
+                        id: e.features[0].id || props.OBJECTID || '',
+                        so_thua: props['Số thửa'] || '',
+                        so_to: props['Số hiệu tờ bản đồ'] || '',
+                        dien_tich: parseFloat(props['Diện tích'] || 0),
+                        muc_dich: props['Ký hiệu mục đích sử dụng'] || '',
+                        dia_chi: props['Địa chỉ'] !== 'Null' ? props['Địa chỉ'] : 'TP. Đà Nẵng'
+                    });
+                    setView('info');
+                });
+                
+                // Cursor pointer on hover
+                map.on('mouseenter', 'parcels-fill-clickable', () => { map.getCanvas().style.cursor = 'pointer'; });
+                map.on('mouseleave', 'parcels-fill-clickable', () => { map.getCanvas().style.cursor = ''; });
+                
                 // Khởi tạo MapController và SearchService sau khi map load xong
                 map.on('load', () => {
                     if (window.MapController) {
@@ -351,6 +421,7 @@
                     if (window.SearchService) {
                         searchServiceRef.current = new window.SearchService();
                     }
+                    console.log('[MAP] ✓ Loaded with vector parcels');
                 });
                 
                 return () => map.remove();

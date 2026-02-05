@@ -79,6 +79,31 @@
         /* Search Bar Style */
         /* Mobile adjustment for Map controls */
         .maplibregl-ctrl-bottom-right { bottom: 80px !important; }
+        
+        /* Dimension Label Styles (inspired by old project) */
+        .dimension-label-container {
+            pointer-events: none;
+            z-index: 1000;
+            position: absolute;
+            transform: translate(-50%, -50%);
+        }
+        
+        .dimension-label {
+            background: none !important;
+            padding: 0;
+            font-size: 12px;
+            font-weight: bold;
+            color: #111;
+            text-shadow: 1px 1px 2px white;
+            white-space: nowrap;
+        }
+        
+        /* Responsive: Smaller labels on mobile */
+        @media (max-width: 768px) {
+            .dimension-label {
+                font-size: 10px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -143,6 +168,111 @@
                 area: props.area || 0,
                 shape_area: props.SHAPE_Area || 0
             };
+        };
+
+        /**
+         * 3. HAVERSINE DISTANCE CALCULATION (adapted from old project)
+         * Calculate distance between two lat/lng points in meters
+         */
+        const calculateDistance = (lat1, lon1, lat2, lon2) => {
+            const R = 6371000; // Earth radius in meters
+            const toRad = (deg) => deg * Math.PI / 180;
+            const dLat = toRad(lat2 - lat1);
+            const dLon = toRad(lon2 - lon1);
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+                      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        };
+
+        /**
+         * 4. DIMENSION DRAWER (adapted from old project for MapLibre)
+         * Draw dimension labels on polygon edges
+         */
+        const clearDimensionLabels = () => {
+            const container = document.querySelector('.maplibregl-canvas')?.parentElement;
+            if (container) {
+                container.querySelectorAll('.dimension-label-container').forEach(el => el.remove());
+            }
+        };
+
+        const drawDimensions = (feature, map) => {
+            clearDimensionLabels();
+            
+            if (!feature?.geometry?.coordinates || !map) return;
+            
+            // Extract coordinates based on geometry type
+            let coords = feature.geometry.type === 'Polygon'
+                ? feature.geometry.coordinates?.[0]
+                : feature.geometry.coordinates?.[0]?.[0];
+                
+            if (!Array.isArray(coords) || coords.length < 2) return;
+            
+            const MIN_DISPLAY_DIST = 2; // meters threshold
+            const container = document.querySelector('.maplibregl-canvas')?.parentElement;
+            if (!container) return;
+            
+            let shortGroup = [];
+            let totalShortDist = 0;
+            
+            const drawLabel = (points, dist) => {
+                // Calculate center (midpoint) of points
+                const flat = points.flat();
+                const midIdx = Math.floor(flat.length / 2);
+                const mid = flat.length % 2 === 0
+                    ? [
+                        (flat[midIdx - 1][0] + flat[midIdx][0]) / 2,
+                        (flat[midIdx - 1][1] + flat[midIdx][1]) / 2
+                    ]
+                    : flat[midIdx];
+                
+                try {
+                    // Convert to screen coordinates using MapLibre projection
+                    const screenPos = map.project([mid[0], mid[1]]);
+                    
+                    // Create marker element
+                    const marker = document.createElement('div');
+                    marker.className = 'dimension-label-container';
+                    marker.innerHTML = `<div class="dimension-label">${Math.round(dist)}m</div>`;
+                    marker.style.left = screenPos.x + 'px';
+                    marker.style.top = screenPos.y + 'px';
+                    
+                    container.appendChild(marker);
+                } catch (e) {
+                    console.warn('[Dimensions] Failed to project coordinates:', e);
+                }
+            };
+            
+            // Process each edge
+            for (let i = 0; i < coords.length - 1; i++) {
+                const p1 = coords[i];
+                const p2 = coords[i + 1];
+                const dist = calculateDistance(p1[1], p1[0], p2[1], p2[0]);
+                
+                if (dist < MIN_DISPLAY_DIST) {
+                    // Group short edges
+                    shortGroup.push([p1, p2]);
+                    totalShortDist += dist;
+                } else {
+                    // Flush short group if accumulated distance is significant
+                    if (shortGroup.length > 0 && totalShortDist >= MIN_DISPLAY_DIST) {
+                        drawLabel(shortGroup, totalShortDist);
+                    }
+                    shortGroup = [];
+                    totalShortDist = 0;
+                    
+                    // Draw long edge
+                    drawLabel([[p1, p2]], dist);
+                }
+            }
+            
+            // Flush remaining short group
+            if (shortGroup.length > 0 && totalShortDist >= MIN_DISPLAY_DIST) {
+                drawLabel(shortGroup, totalShortDist);
+            }
+            
+            console.log('[Dimensions] ✓ Drawn on parcel');
         };
 
         window.MapController = class MapController {
@@ -460,6 +590,9 @@
                         map.setFilter('parcels-highlight', ['==', ['id'], parcelId]);
                         map.setFilter('parcels-highlight-fill', ['==', ['id'], parcelId]);
                     }
+                    
+                    // Draw dimension labels on polygon edges
+                    drawDimensions(e.features[0], map);
                     
                     setSelected({
                         id: e.features[0].id || normalized.object_id || '',

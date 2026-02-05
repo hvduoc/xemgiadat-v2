@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug: CDN Load Verification</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #1e293b; color: #e2e8f0; }
+        .test { margin: 15px 0; padding: 15px; border-left: 4px solid #64748b; background: #0f172a; }
+        .ok { border-left-color: #22c55e; }
+        .error { border-left-color: #ef4444; }
+        h2 { color: #60a5fa; }
+        code { background: #334155; padding: 2px 6px; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <h1>🔍 CDN Load Debug Test</h1>
+    
+    <h2>Testing individual CDNs:</h2>
+    <div id="results"></div>
+
+    <script>
+        const div = document.getElementById('results');
+        const loadTests = [
+            { name: 'PMTiles v3.2.0', url: 'https://cdn.jsdelivr.net/npm/pmtiles@3.2.0/dist/index.js', global: 'pmtiles' },
+            { name: 'MapLibre GL v4.7.1', url: 'https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.js', global: 'maplibregl' },
+            { name: 'React 18', url: 'https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js', global: 'React' },
+            { name: 'ReactDOM 18', url: 'https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js', global: 'ReactDOM' },
+        ];
+
+        loadTests.forEach(test => {
+            const script = document.createElement('script');
+            script.src = test.url;
+            
+            script.onload = () => {
+                const result = document.createElement('div');
+                const globalExists = typeof window[test.global] !== 'undefined';
+                result.className = `test ${globalExists ? 'ok' : 'error'}`;
+                result.innerHTML = `
+                    <strong>${globalExists ? '✓' : '✗'} ${test.name}</strong><br/>
+                    URL: <code>${test.url}</code><br/>
+                    Global: <code>window.${test.global}</code> = <code>${globalExists ? 'OK' : 'FAILED'}</code>
+                `;
+                div.appendChild(result);
+            };
+            
+            script.onerror = () => {
+                const result = document.createElement('div');
+                result.className = 'test error';
+                result.innerHTML = `
+                    <strong>✗ ${test.name}</strong><br/>
+                    URL: <code>${test.url}</code><br/>
+                    Status: <code>LOAD FAILED</code>
+                `;
+                div.appendChild(result);
+            };
+            
+            document.head.appendChild(script);
+        });
+
+        // Check after 3 seconds
+        setTimeout(() => {
+            const summary = document.createElement('div');
+            summary.style.cssText = 'margin-top: 30px; padding: 15px; background: #334155; border-radius: 6px;';
+            
+            const pmOK = typeof window.pmtiles !== 'undefined';
+            const mlOK = typeof window.maplibregl !== 'undefined';
+            const rOK = typeof window.React !== 'undefined';
+            const rdOK = typeof window.ReactDOM !== 'undefined';
+            
+            summary.innerHTML = `
+                <h3 style="color: #60a5fa; margin-top: 0;">Final Status:</h3>
+                <div style="line-height: 1.8;">
+                    pmtiles: ${pmOK ? '✓ OK' : '✗ FAILED'}<br/>
+                    maplibregl: ${mlOK ? '✓ OK' : '✗ FAILED'}<br/>
+                    React: ${rOK ? '✓ OK' : '✗ FAILED'}<br/>
+                    ReactDOM: ${rdOK ? '✓ OK' : '✗ FAILED'}<br/>
+                    <hr style="border: none; border-top: 1px solid #475569; margin: 10px 0;">
+                    <strong>All CDNs Ready:</strong> ${pmOK && mlOK && rOK && rdOK ? '✓ YES' : '✗ NO'}
+                </div>
+            `;
+            div.appendChild(summary);
+        }, 3000);
+    </script>
+</body>
+</html>

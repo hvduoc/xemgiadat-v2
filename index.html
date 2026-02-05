@@ -6,13 +6,13 @@
     <title>XemGiaDat V2 - GIS Standalone Pro</title>
     
     <!-- CDNs ĐIỀU KIỆN TIÊN QUYẾT -->
-    <script src="https://unpkg.com/pmtiles@3.2.0/dist/index.js"></script>
+    <script src="https://unpkg.com/pmtiles@3/dist/index.js" onerror="window.__PMTILES_FAILED=true"></script>
+    <link href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.23.5/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
-    <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <style>
         body, html, #root { 
@@ -79,10 +79,14 @@
                 console.warn('[INIT] window.location override failed, using fallback:', e.message);
             }
 
-            // Sửa lỗi pmtiles global v3.2.0
-            if (!window.pmtiles && window.PMTiles) {
-                window.pmtiles = window.PMTiles;
-                console.log('[INIT] Aliased window.PMTiles → window.pmtiles');
+            // Sửa lỗi pmtiles global v3 - handle failures
+            if (!window.pmtiles) {
+                if (window.PMTiles) {
+                    window.pmtiles = window.PMTiles;
+                    console.log('[INIT] Aliased window.PMTiles → window.pmtiles');
+                } else if (window.__PMTILES_FAILED) {
+                    console.warn('[INIT] PMTiles CDN load failed - will use OSM fallback');
+                }
             }
             
             // Register PMTiles protocol
@@ -275,7 +279,8 @@
         };
     </script>
 
-    <script type="text/babel" data-presets="es2015,react,stage-0" data-plugins="">
+    <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
+    <script type="text/babel">
         const { useState, useEffect, useRef, useMemo } = React;
 
         /**

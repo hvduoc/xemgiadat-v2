@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XemGiaDat V2 - Minimal Test</title>
+    
+    <!-- CDN Stack -->
+    <script src="https://cdn.jsdelivr.net/npm/pmtiles@3.2.0/dist/index.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+
+    <style>
+        body, html { height: 100%; margin: 0; padding: 0; overflow: hidden; background: #000; }
+        #map { width: 100%; height: 100%; }
+        #debug { position: fixed; top: 0; left: 0; background: rgba(0,0,0,0.8); color: #0f0; padding: 10px; font-family: monospace; font-size: 12px; max-width: 400px; max-height: 200px; overflow-y: auto; z-index: 1000; }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <div id="debug"></div>
+
+    <script>
+        const DEBUG_LOG = [];
+        
+        const log = (msg) => {
+            console.log(msg);
+            DEBUG_LOG.push(msg);
+            document.getElementById('debug').innerHTML = DEBUG_LOG.map(m => m + '<br/>').join('');
+        };
+
+        log('[INIT] Starting minimal test...');
+        log('[CHECK] pmtiles: ' + (typeof window.pmtiles !== 'undefined' ? 'OK' : 'FAIL'));
+        log('[CHECK] maplibregl: ' + (typeof window.maplibregl !== 'undefined' ? 'OK' : 'FAIL'));
+
+        // Initialize map
+        if (typeof window.maplibregl === 'undefined') {
+            log('[ERROR] MapLibre GL not loaded!');
+        } else {
+            try {
+                const map = new window.maplibregl.Map({
+                    container: 'map',
+                    style: 'https://demotiles.maplibre.org/style.json',
+                    center: [108.2022, 16.0544],
+                    zoom: 12
+                });
+
+                log('[MAP] Created successfully');
+
+                map.on('load', () => {
+                    log('[MAP] Load complete');
+                    
+                    // Try to register PMTiles
+                    if (typeof window.pmtiles !== 'undefined') {
+                        try {
+                            const protocol = new window.pmtiles.Protocol();
+                            window.maplibregl.addProtocol('pmtiles', protocol.tile);
+                            log('[PMTILES] Protocol registered OK');
+                        } catch (e) {
+                            log('[PMTILES] Register error: ' + e.message);
+                        }
+                    } else {
+                        log('[PMTILES] Not loaded/available');
+                    }
+                });
+
+                map.on('error', (e) => {
+                    log('[MAP] Error: ' + e.error.message);
+                });
+
+            } catch (e) {
+                log('[ERROR] Map init failed: ' + e.message);
+            }
+        }
+    </script>
+</body>
+</html>

@@ -35,28 +35,24 @@
         /* Mobile adjustment for Map controls */
         .maplibregl-ctrl-bottom-right { bottom: 80px !important; }
     </style>
-<script type="importmap">
-{
-  "imports": {
-    "lucide-react": "https://esm.sh/lucide-react@^0.563.0",
-    "react/": "https://esm.sh/react@^19.2.4/",
-    "react": "https://esm.sh/react@^19.2.4",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
-    "maplibre-gl": "https://esm.sh/maplibre-gl@^5.17.0",
-    "pmtiles": "https://esm.sh/pmtiles@^4.4.0"
-  }
-}
-</script>
 </head>
 <body>
     <div id="root"></div>
 
     <script>
+        console.log('[INIT] XemGiaDat v2 initialization started');
+        
         /**
          * 1. CẦU CHÌ BẢO VỆ (SAFE_LOC)
          * Bypass triệt để lỗi "Blocked a frame with origin..."
          */
         const setupSafeLocation = () => {
+            console.log('[INIT] Checking CDN globals...');
+            console.log('  - window.pmtiles:', typeof window.pmtiles !== 'undefined');
+            console.log('  - window.maplibregl:', typeof window.maplibregl !== 'undefined');
+            console.log('  - window.React:', typeof window.React !== 'undefined');
+            console.log('  - window.ReactDOM:', typeof window.ReactDOM !== 'undefined');
+            
             const fakeLoc = { 
                 href: 'https://xemgiadat.com/', 
                 origin: 'https://xemgiadat.com', 
@@ -77,15 +73,32 @@
                         configurable: true
                     });
                 });
+                console.log('[INIT] ✓ window.location override successful');
             } catch (e) {
-                // Fallback nếu không ghi đè được trực tiếp
                 window.__SAFE_LOCATION__ = fakeLoc;
+                console.warn('[INIT] window.location override failed, using fallback:', e.message);
             }
 
             // Sửa lỗi pmtiles global v3.2.0
-            // PMTiles v3.2.0 UMD thường xuất ra window.pmtiles hoặc window.PMTiles
             if (!window.pmtiles && window.PMTiles) {
                 window.pmtiles = window.PMTiles;
+                console.log('[INIT] Aliased window.PMTiles → window.pmtiles');
+            }
+            
+            // Register PMTiles protocol
+            if (window.pmtiles && window.maplibregl) {
+                try {
+                    const protocol = new window.pmtiles.Protocol();
+                    window.maplibregl.addProtocol("pmtiles", protocol.tile);
+                    console.log('[INIT] ✓ PMTiles protocol registered');
+                } catch (e) {
+                    console.error('[INIT] ✗ PMTiles register failed:', e.message);
+                }
+            } else {
+                const missing = [];
+                if (!window.pmtiles) missing.push('pmtiles');
+                if (!window.maplibregl) missing.push('maplibregl');
+                console.warn('[INIT] Cannot register PMTiles - missing:', missing.join(', '));
             }
         };
         setupSafeLocation();
@@ -262,7 +275,7 @@
         };
     </script>
 
-    <script type="text/babel">
+    <script type="text/babel" data-presets="es2015,react,stage-0" data-plugins="">
         const { useState, useEffect, useRef, useMemo } = React;
 
         /**

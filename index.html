@@ -148,15 +148,16 @@
          * 2. MAP CONTROLLER (Inline Implementation)
          */
         const normalizeParcelProps = (props) => {
-            const so_thua = props['Số thửa'] || props.soThua || props.so_thua || '';
-            const so_to = props['Số hiệu tờ bản đồ'] || props.soTo || props.so_to || '';
-            const muc_dich = props['Ký hiệu mục đích sử dụng'] || props.loaiDat || props.muc_dich || '';
-            const dien_tich_raw = props['Diện tích'] ?? props.dienTich ?? props.dien_tich ?? props.area ?? props.SHAPE_Area ?? 0;
+            // Try all possible key variations
+            const so_thua = props['Số thửa'] || props['So thua'] || props.soThua || props.so_thua || props.SOTHUA || '';
+            const so_to = props['Số hiệu tờ bản đồ'] || props['So hieu to ban do'] || props.soTo || props.so_to || props.SOTO || '';
+            const muc_dich = props['Ký hiệu mục đích sử dụng'] || props['Ky hieu muc dich su dung'] || props.loaiDat || props.muc_dich || props.MUCDICH || '';
+            const dien_tich_raw = props['Diện tích'] || props['Dien tich'] || props.dienTich || props.dien_tich || props.DIENTICH || props.area || props.SHAPE_Area || props.Shape_Area || 0;
             const dien_tich = parseFloat(dien_tich_raw) || 0;
-            const dia_chi_raw = props['Địa chỉ'] || props.diaChi || props.dia_chi || '';
-            const dia_chi = dia_chi_raw && dia_chi_raw !== 'Null' ? dia_chi_raw : 'Chưa có';
-            const ma_xa = props['Mã xã'] || props.maXa || props.ma_xa || '';
-            const object_id = props.OBJECTID || props.objectid || props.id || '';
+            const dia_chi_raw = props['Địa chỉ'] || props['Dia chi'] || props.diaChi || props.dia_chi || props.DIACHI || '';
+            const dia_chi = dia_chi_raw && dia_chi_raw !== 'Null' && dia_chi_raw !== 'null' ? dia_chi_raw : 'Chưa có';
+            const ma_xa = props['Mã xã'] || props['Ma xa'] || props.maXa || props.ma_xa || props.MAXA || '';
+            const object_id = props.OBJECTID || props.objectid || props.ObjectId || props.id || props.ID || '';
             return {
                 so_thua,
                 so_to,
@@ -166,7 +167,7 @@
                 ma_xa,
                 object_id,
                 area: props.area || 0,
-                shape_area: props.SHAPE_Area || 0
+                shape_area: props.SHAPE_Area || props.Shape_Area || 0
             };
         };
 
@@ -197,10 +198,30 @@
             }
         };
 
+        // Store currently selected feature for redrawing on zoom/pan
+        let selectedFeatureForDimensions = null;
+        
+        // Expose for React component to access
+        window.__clearDimensionsAndHighlight = (map) => {
+            clearDimensionLabels();
+            selectedFeatureForDimensions = null;
+            if (map && map.getLayer) {
+                try {
+                    map.setFilter('parcels-highlight', ['==', ['id'], -1]);
+                    map.setFilter('parcels-highlight-fill', ['==', ['id'], -1]);
+                } catch (e) {
+                    console.warn('[Cleanup] Could not clear highlight:', e);
+                }
+            }
+        };
+
         const drawDimensions = (feature, map) => {
             clearDimensionLabels();
             
             if (!feature?.geometry?.coordinates || !map) return;
+            
+            // Store feature for redrawing on map move
+            selectedFeatureForDimensions = feature;
             
             // Extract coordinates based on geometry type
             let coords = feature.geometry.type === 'Polygon'
@@ -534,6 +555,13 @@
             const [form, setForm] = useState({ price: '', phone: '', note: '' });
             const [isSubmitting, setIsSubmitting] = useState(false);
 
+            // Clear dimensions and highlight when selected is cleared
+            useEffect(() => {
+                if (selected === null && window.__clearDimensionsAndHighlight) {
+                    window.__clearDimensionsAndHighlight(mapRef.current);
+                }
+            }, [selected]);
+
             useEffect(() => {
                 // Setup worker URL
                 if (window.maplibregl) {
@@ -560,8 +588,8 @@
                             { id: 'osm', type: 'raster', source: 'osm' },
                             { id: 'parcels-line', type: 'line', source: 'parcels', 'source-layer': 'default', paint: { 'line-color': '#3B82F6', 'line-width': 1.5 } },
                             { id: 'parcels-fill-clickable', type: 'fill', source: 'parcels', 'source-layer': 'default', paint: { 'fill-color': 'transparent' } },
-                            { id: 'parcels-highlight', type: 'line', source: 'parcels', 'source-layer': 'default', filter: ['==', ['id'], -1], paint: { 'line-color': '#EF4444', 'line-width': 3 } },
-                            { id: 'parcels-highlight-fill', type: 'fill', source: 'parcels', 'source-layer': 'default', filter: ['==', ['id'], -1], paint: { 'fill-color': '#EF4444', 'fill-opacity': 0.3 } }
+                            { id: 'parcels-highlight-fill', type: 'fill', source: 'parcels', 'source-layer': 'default', filter: ['==', ['id'], -1], paint: { 'fill-color': '#FBBF24', 'fill-opacity': 0.4 } },
+                            { id: 'parcels-highlight', type: 'line', source: 'parcels', 'source-layer': 'default', filter: ['==', ['id'], -1], paint: { 'line-color': '#F59E0B', 'line-width': 4, 'line-blur': 1 } }
                         ]
                     },
                     center: [108.2022, 16.0544],
@@ -580,15 +608,19 @@
                     // Debug: Log raw properties
                     console.log('[Click] Raw properties:', props);
                     console.log('[Click] All keys:', Object.keys(props));
+                    console.log('[Click] Feature ID:', e.features[0].id);
                     
                     const normalized = normalizeParcelProps(props);
                     console.log('[Click] Normalized:', normalized);
                     
-                    // Highlight parcel
-                    const parcelId = e.features[0].id || normalized.object_id;
-                    if (parcelId) {
-                        map.setFilter('parcels-highlight', ['==', ['id'], parcelId]);
-                        map.setFilter('parcels-highlight-fill', ['==', ['id'], parcelId]);
+                    // Highlight parcel - use feature.id directly (number type)
+                    const parcelId = e.features[0].id;
+                    if (parcelId !== undefined && parcelId !== null) {
+                        console.log('[Highlight] Setting highlight for ID:', parcelId);
+                        map.setFilter('parcels-highlight', ['==', ['id'], Number(parcelId)]);
+                        map.setFilter('parcels-highlight-fill', ['==', ['id'], Number(parcelId)]);
+                    } else {
+                        console.warn('[Highlight] No valid parcelId found');
                     }
                     
                     // Draw dimension labels on polygon edges
@@ -596,11 +628,11 @@
                     
                     setSelected({
                         id: e.features[0].id || normalized.object_id || '',
-                        so_thua: normalized.so_thua,
-                        so_to: normalized.so_to,
-                        dien_tich: normalized.dien_tich,
-                        muc_dich: normalized.muc_dich,
-                        dia_chi: normalized.dia_chi
+                        so_thua: normalized.so_thua || 'N/A',
+                        so_to: normalized.so_to || 'N/A',
+                        dien_tich: normalized.dien_tich || 0,
+                        muc_dich: normalized.muc_dich || 'Chưa rõ',
+                        dia_chi: normalized.dia_chi || 'Chưa có'
                     });
                     setView('info');
                 });
@@ -633,6 +665,13 @@
                                         searchServiceRef.current.updateCache(map);
                                     }
                                 });
+                });
+                
+                // Redraw dimensions when map moves (zoom/pan) to keep labels in correct position
+                map.on('move', () => {
+                    if (selectedFeatureForDimensions) {
+                        drawDimensions(selectedFeatureForDimensions, map);
+                    }
                 });
                 
                 return () => map.remove();

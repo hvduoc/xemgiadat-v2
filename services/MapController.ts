@@ -1,15 +1,11 @@
-import maplibregl from 'maplibre-gl';
-import { Protocol } from 'pmtiles';
-import { StyleEngine } from './StyleEngine';
-import { LinkService } from './LinkService';
-
-export class MapController {
-  private map: maplibregl.Map | null = null;
-  private protocol: Protocol;
+class MapController {
+  private map: any;
+  private protocol: any;
 
   constructor() {
-    this.protocol = new Protocol();
-    const mlgl = maplibregl as any;
+    const pmtiles = (window as any).pmtiles || (window as any).PMTiles;
+    this.protocol = new pmtiles.Protocol();
+    const mlgl = (window as any).maplibregl;
     if (mlgl.addProtocol && (!mlgl._protocols || !mlgl._protocols.pmtiles)) {
       mlgl.addProtocol('pmtiles', (params: any, callback: any) => {
         return this.protocol.tile(params, callback);
@@ -17,11 +13,12 @@ export class MapController {
     }
     
     // Đảm bảo worker không truy cập domain hiện tại để tránh lỗi CORS/Location
-    (maplibregl as any).workerUrl = 'https://unpkg.com/maplibre-gl@5.1.0/dist/maplibre-gl-csp-worker.js';
+    mlgl.workerUrl = 'https://unpkg.com/maplibre-gl@5.1.0/dist/maplibre-gl-csp-worker.js';
   }
 
   init(container: HTMLDivElement, initialView: any, onParcelClick: (data: any) => void) {
     try {
+      const maplibregl = (window as any).maplibregl;
       this.map = new maplibregl.Map({
         container,
         style: {
@@ -50,6 +47,7 @@ export class MapController {
       });
 
       this.map.on('load', () => {
+        const StyleEngine = (window as any).StyleEngine;
         StyleEngine.applyLODStyle(this.map!);
         
         this.map!.on('click', StyleEngine.LAYER_FILL, (e) => {
@@ -67,6 +65,7 @@ export class MapController {
 
       this.map.on('moveend', () => {
         if (!this.map) return;
+        const LinkService = (window as any).LinkService;
         const c = this.map.getCenter();
         LinkService.updateUrl(c.lat, c.lng, this.map.getZoom());
       });
@@ -78,8 +77,9 @@ export class MapController {
     }
   }
 
-  private performSelection(point: maplibregl.Point, lngLat: maplibregl.LngLat, callback: Function) {
+  private performSelection(point: any, lngLat: any, callback: Function) {
     if (!this.map) return;
+    const StyleEngine = (window as any).StyleEngine;
     const features = this.map.queryRenderedFeatures(point, {
       layers: [StyleEngine.LAYER_FILL]
     });
@@ -99,6 +99,9 @@ export class MapController {
 
   highlightParcel(id: string | number) {
     if (!this.map) return;
+    const StyleEngine = (window as any).StyleEngine;
     this.map.setFilter(StyleEngine.LAYER_HIGHLIGHT, ['==', ['id'], id]);
   }
 }
+
+(window as any).MapController = MapController;

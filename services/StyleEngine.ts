@@ -1,7 +1,5 @@
 
-import maplibregl from 'maplibre-gl';
-
-export class StyleEngine {
+class StyleEngine {
   static readonly SOURCE_ID = 'danang-parcels';
   static readonly SOURCE_LAYER = 'default';
   static readonly PMTILES_URL = 'https://xemgiadat.com/tiles/danang_parcels_final.pmtiles';
@@ -11,7 +9,7 @@ export class StyleEngine {
   static readonly LAYER_FILL = 'parcels-fill';
   static readonly LAYER_HIGHLIGHT = 'parcels-highlight';
 
-  static applyLODStyle(map: maplibregl.Map) {
+  static applyLODStyle(map: any) {
     if (map.getSource(this.SOURCE_ID)) return;
 
     map.addSource(this.SOURCE_ID, {
@@ -63,3 +61,5 @@ export class StyleEngine {
     });
   }
 }
+
+(window as any).StyleEngine = StyleEngine;

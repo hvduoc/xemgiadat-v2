@@ -1,15 +1,13 @@
-import maplibregl from 'maplibre-gl';
-import { Protocol } from 'pmtiles';
-import { ParcelData } from '../types';
 
-export class MapModule {
-  private map: maplibregl.Map | null = null;
-  private protocol: Protocol | null = null;
+class MapModule {
+  private map: any;
+  private protocol: any;
 
   constructor() {
     try {
-      this.protocol = new Protocol();
-      const mlgl = maplibregl as any;
+      const pmtiles = (window as any).pmtiles || (window as any).PMTiles;
+      this.protocol = new pmtiles.Protocol();
+      const mlgl = (window as any).maplibregl;
       if (mlgl.addProtocol && (!mlgl._protocols || !mlgl._protocols.pmtiles)) {
         mlgl.addProtocol('pmtiles', (params: any, callback: any) => {
           return this.protocol?.tile(params, callback);
@@ -20,9 +18,10 @@ export class MapModule {
     }
   }
 
-  initialize(container: HTMLDivElement, options: Partial<maplibregl.MapOptions>) {
+  initialize(container: HTMLDivElement, options: any) {
     try {
-      (maplibregl as any).workerUrl = 'https://unpkg.com/maplibre-gl@5.1.0/dist/maplibre-gl-csp-worker.js';
+      const maplibregl = (window as any).maplibregl;
+      maplibregl.workerUrl = 'https://unpkg.com/maplibre-gl@5.1.0/dist/maplibre-gl-csp-worker.js';
 
       this.map = new maplibregl.Map({
         container,
@@ -67,7 +66,8 @@ export class MapModule {
   addMockData(parcels: ParcelData[]) {
     if (!this.map) return;
     
-    const geojson: GeoJSON.FeatureCollection = {
+    // Fix: Use 'any' type to avoid missing 'GeoJSON' namespace error
+    const geojson: any = {
       type: 'FeatureCollection',
       features: parcels.map(p => ({
         type: 'Feature',
@@ -80,7 +80,7 @@ export class MapModule {
     };
 
     if (this.map.getSource('mock-parcels')) {
-      (this.map.getSource('mock-parcels') as maplibregl.GeoJSONSource).setData(geojson);
+      (this.map.getSource('mock-parcels') as any).setData(geojson);
       return;
     }
 
@@ -144,3 +144,5 @@ export class MapModule {
 
   getMap() { return this.map; }
 }
+
+(window as any).MapModule = MapModule;

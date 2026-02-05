@@ -1,6 +1,4 @@
 
-import { ParcelData, SearchResult } from '../types';
-
 const workerCode = `
   self.onmessage = function(e) {
     const { query, parcels } = e.data;
@@ -36,7 +34,7 @@ const workerCode = `
   };
 `;
 
-export class SearchModule {
+class SearchModule {
   private worker: Worker | null = null;
   private currentResolve: ((value: SearchResult[]) => void) | null = null;
 
@@ -98,3 +96,5 @@ export class SearchModule {
     this.worker?.terminate();
   }
 }
+
+(window as any).SearchModule = SearchModule;

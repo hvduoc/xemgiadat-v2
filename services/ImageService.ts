@@ -1,5 +1,5 @@
 
-export class ImageService {
+class ImageService {
   /**
    * Nén ảnh bằng Canvas API
    * @param file File gốc
@@ -39,3 +39,5 @@ export class ImageService {
     });
   }
 }
+
+(window as any).ImageService = ImageService;

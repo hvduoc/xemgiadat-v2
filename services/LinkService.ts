@@ -1,4 +1,4 @@
-export class LinkService {
+class LinkService {
   /**
    * Truy cập dữ liệu URL một cách an toàn.
    */
@@ -63,3 +63,5 @@ export class LinkService {
     return `${baseUrl}#${params}`;
   }
 }
+
+(window as any).LinkService = LinkService;

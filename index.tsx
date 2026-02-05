@@ -1,6 +1,5 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import App from './App';
 
 /**
  * CẦU CHÌ BẢO VỆ: bypassLocation
@@ -47,6 +46,7 @@ const bypassLocation = () => {
 
 bypassLocation();
 
+const App = (window as any).App;
 const rootElement = document.getElementById('root');
 if (rootElement) {
   const root = ReactDOM.createRoot(rootElement);

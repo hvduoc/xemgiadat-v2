@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>XemGiaDat - Dang tai thong tin...</title>
+
+  <!-- Open Graph default -->
+  <meta property="og:title" content="Dang tai thong tin thua dat..." />
+  <meta property="og:description" content="Vui long cho trong giay lat." />
+  <meta property="og:image" content="https://xemgiadat.com/placeholder.png" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="" />
+
+  <!-- Auto-redirect to index.html after 2s -->
+  <meta http-equiv="refresh" content="2;url=index.html" />
+</head>
+<body>
+  <h2>Dang tai thong tin thua dat...</h2>
+  <p>Ban se duoc chuyen den ban do trong giay lat.</p>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const lat = params.get('lat');
+    const lng = params.get('lng');
+    const soTo = params.get('soTo') || 'chua ro';
+    const soThua = params.get('soThua') || 'chua ro';
+
+    const redirectParams = new URLSearchParams();
+    if (lat) redirectParams.set('lat', lat);
+    if (lng) redirectParams.set('lng', lng);
+    if (params.get('z')) redirectParams.set('z', params.get('z'));
+    if (params.get('soTo')) redirectParams.set('soTo', params.get('soTo'));
+    if (params.get('soThua')) redirectParams.set('soThua', params.get('soThua'));
+
+    const redirectUrl = `index.html${redirectParams.toString() ? '?' + redirectParams.toString() : ''}`;
+    document.querySelector('meta[http-equiv="refresh"]').setAttribute('content', `2;url=${redirectUrl}`);
+
+    const title = `Thua dat ${soThua}, to ${soTo} - XemGiaDat`;
+    const description = `Xem thong tin thua dat va ban do gia dat cong dong tai Da Nang.`;
+
+    document.querySelector('meta[property="og:title"]').setAttribute('content', title);
+    document.querySelector('meta[property="og:description"]').setAttribute('content', description);
+    document.querySelector('meta[property="og:url"]').setAttribute('content', window.location.href);
+  </script>
+</body>
+</html>

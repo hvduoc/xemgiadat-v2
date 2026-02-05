@@ -226,6 +226,54 @@
         window.SearchService = class SearchService {
             constructor() {
                 this.searchModule = new window.SearchModule();
+                this.featureCache = new Map();
+                this.lastCacheUpdate = 0;
+            }
+
+            updateCache(map) {
+                if (!map) return;
+                
+                try {
+                    const features = map.queryRenderedFeatures({
+                        layers: ['parcels-fill-clickable']
+                    });
+
+                    if (features && features.length > 0) {
+                        features.forEach(f => {
+                            const props = f.properties || {};
+                            const id = f.id || props.OBJECTID;
+                            
+                            if (id && props['Số thửa'] && props['Số hiệu tờ bản đồ']) {
+                                let coordinates = [108.2022, 16.0544];
+                                if (f.geometry?.type === 'Polygon' && f.geometry.coordinates?.[0]?.[0]) {
+                                    const coords = f.geometry.coordinates[0];
+                                    const lngs = coords.map(c => c[0]);
+                                    const lats = coords.map(c => c[1]);
+                                    coordinates = [
+                                        (Math.min(...lngs) + Math.max(...lngs)) / 2,
+                                        (Math.min(...lats) + Math.max(...lats)) / 2
+                                    ];
+                                }
+
+                                this.featureCache.set(id, {
+                                    id: id,
+                                    so_thua: props['Số thửa'] || '',
+                                    so_to: props['Số hiệu tờ bản đồ'] || '',
+                                    dien_tich: parseFloat(props['Diện tích'] || 0),
+                                    muc_dich: props['Ký hiệu mục đích sử dụng'] || '',
+                                    ma_xa: props['Mã xã'] || '',
+                                    dia_chi: props['Địa chỉ'] !== 'Null' ? props['Địa chỉ'] : 'TP. Đà Nẵng',
+                                    coordinates
+                                });
+                            }
+                        });
+                        
+                        this.lastCacheUpdate = Date.now();
+                        console.log(`[Cache] Updated: ${this.featureCache.size} features`);
+                    }
+                } catch (err) {
+                    console.error('[Cache] Update error:', err);
+                }
             }
 
             async searchParcels(query) {
@@ -233,45 +281,22 @@
                 if (!query || !map) return [];
                 
                 try {
-                    const features = map.querySourceFeatures('parcels', {
-                        sourceLayer: 'default'
-                    });
+                    if (this.featureCache.size === 0 || Date.now() - this.lastCacheUpdate > 5000) {
+                        this.updateCache(map);
+                    }
 
-                    if (!features || features.length === 0) {
-                        console.warn('No features loaded. Try zooming or panning.');
+                    const parcels = Array.from(this.featureCache.values());
+
+                    if (parcels.length === 0) {
+                        console.warn('[Search] Cache trống. Hãy zoom vào khu vực Đà Nẵng và thử lại.');
                         return [];
                     }
 
-                    const parcels = features.map(f => {
-                        const props = f.properties || {};
-                        let coordinates = [108.2022, 16.0544];
-
-                        if (f.geometry?.type === 'Polygon' && f.geometry.coordinates?.[0]?.[0]) {
-                            const coords = f.geometry.coordinates[0];
-                            const lngs = coords.map(c => c[0]);
-                            const lats = coords.map(c => c[1]);
-                            coordinates = [
-                                (Math.min(...lngs) + Math.max(...lngs)) / 2,
-                                (Math.min(...lats) + Math.max(...lats)) / 2
-                            ];
-                        }
-
-                        return {
-                            id: f.id || props.OBJECTID || '',
-                            so_thua: props['Số thửa'] || '',
-                            so_to: props['Số hiệu tờ bản đồ'] || '',
-                            dien_tich: parseFloat(props['Diện tích'] || 0),
-                            muc_dich: props['Ký hiệu mục đích sử dụng'] || '',
-                            ma_xa: props['Mã xã'] || '',
-                            dia_chi: props['Địa chỉ'] !== 'Null' ? props['Địa chỉ'] : 'TP. Đà Nẵng',
-                            coordinates
-                        };
-                    });
-
                     const results = this.searchModule.search(query, parcels);
+                    console.log(`[Search] "${query}" → ${results.length} kết quả từ ${parcels.length} features`);
                     return results.map(r => r.parcel);
                 } catch (err) {
-                    console.error('Search error:', err);
+                    console.error('[Search] Error:', err);
                     return [];
                 }
             }
@@ -420,8 +445,22 @@
                     }
                     if (window.SearchService) {
                         searchServiceRef.current = new window.SearchService();
+                        
+                                            // Initial cache update
+                                            setTimeout(() => {
+                                                if (searchServiceRef.current) {
+                                                    searchServiceRef.current.updateCache(map);
+                                                }
+                                            }, 1000);
                     }
                     console.log('[MAP] ✓ Loaded with vector parcels');
+                
+                                // Auto-update cache when map stops moving
+                                map.on('idle', () => {
+                                    if (searchServiceRef.current) {
+                                        searchServiceRef.current.updateCache(map);
+                                    }
+                                });
                 });
                 
                 return () => map.remove();
@@ -438,8 +477,8 @@
 
                 setIsSearching(true);
                 try {
-                    const found = await searchServiceRef.current.find(soTo, soThua);
-                    setSearchResults(found ? [found] : []);
+                    const results = await searchServiceRef.current.searchParcels(`${soTo} ${soThua}`);
+                    setSearchResults(results || []);
                 } catch (err) {
                     console.error('Search failed:', err);
                     setSearchResults([]);
@@ -450,6 +489,16 @@
 
             const handleSelectResult = (parcel) => {
                 if (!parcel) return;
+                // Fly to parcel location
+                const map = window.MapController.getMap();
+                if (map && parcel.coordinates) {
+                    map.flyTo({
+                        center: parcel.coordinates,
+                        zoom: 18,
+                        duration: 1500
+                    });
+                }
+
 
                 setSelected({
                     id: parcel.id,
@@ -489,7 +538,7 @@
                                     <Icons.Search />
                                     <input 
                                         type="text"
-                                        placeholder="Tìm số tờ, số thửa..." 
+                                        placeholder="Nhập số tờ và số thửa (VD: 45 123)" 
                                         className="flex-1 outline-none text-slate-900 font-semibold placeholder-slate-400 px-3"
                                         value={searchQuery}
                                         onChange={e => setSearchQuery(e.target.value)}
@@ -510,8 +559,11 @@
                                                 <p style={{marginTop: '8px', fontSize: '14px'}}>Đang tìm kiếm...</p>
                                             </div>
                                         ) : searchResults.length === 0 ? (
-                                            <div className="px-4 py-6 text-center text-slate-500" style={{fontSize: '14px'}}>
-                                                Không tìm thấy. Hãy zoom ra hoặc pan map.
+                                            <div className="px-4 py-6 text-center" style={{fontSize: '14px'}}>
+                                                <p className="text-slate-700 font-semibold mb-2">Không tìm thấy kết quả</p>
+                                                <p className="text-slate-500 text-xs">
+                                                    💡 Hãy zoom/pan bản đồ đến khu vực Đà Nẵng và thử lại
+                                                </p>
                                             </div>
                                         ) : (
                                             searchResults.map((parcel, idx) => (

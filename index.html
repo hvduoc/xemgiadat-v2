@@ -169,6 +169,11 @@
 
         /**
          * 1.1 FIREBASE INIT (Compat SDK, lazy-friendly)
+         * 
+         * NOTE: Firebase Web API keys are DESIGNED to be public.
+         * Real security is enforced by Firestore Security Rules on the server.
+         * GitHub's "secret scanning" alert for this key is expected and safe to ignore.
+         * See: https://firebase.google.com/docs/projects/api-keys
          */
         const FIREBASE_CONFIG = {
             apiKey: "AIzaSyDu9tYpJdMPT7Hvk2_Ug8XHwxRQXoakRfs",
@@ -180,7 +185,7 @@
             measurementId: "G-XT932D9N1N"
         };
 
-        const ADMIN_UID = "FEpPWWT1EaTWQ9FOqBxWN5FeEJk1";
+        // Admin check moved to Firestore Security Rules (NOT exposed in client)
         let firebaseInitPromise = null;
 
         const initFirebase = async () => {
@@ -915,29 +920,49 @@
                                             try {
                                                 if (searchServiceRef.current) {
                                                     searchServiceRef.current.updateCache(map);
-                                                    const results = await searchServiceRef.current.searchParcels(`${deepLink.soTo} ${deepLink.soThua}`);
-                                                    const match = results?.find(r => r.so_to === deepLink.soTo && r.so_thua === deepLink.soThua) || results?.[0];
-                                                    if (match) {
-                                                        setSelected({
-                                                            id: match.id,
-                                                            so_thua: match.so_thua,
-                                                            so_to: match.so_to,
-                                                            dien_tich: match.dien_tich,
-                                                            muc_dich: match.muc_dich,
-                                                            dia_chi: match.dia_chi,
-                                                            coordinates: match.coordinates
-                                                        });
-                                                        setView('info');
-                                                    }
                                                 }
 
-                                                if (window.MapController?.flyToParcel) {
-                                                    window.MapController.flyToParcel(deepLink.soTo, deepLink.soThua);
+                                                // Query the feature at the shared location
+                                                const point = map.project([deepLink.lng, deepLink.lat]);
+                                                const features = map.queryRenderedFeatures(point, {
+                                                    layers: ['parcels-fill-clickable']
+                                                });
+
+                                                if (features && features.length > 0) {
+                                                    const clickedFeature = features[0];
+                                                    const props = clickedFeature.properties || {};
+                                                    const normalized = normalizeParcelProps(props);
+
+                                                    // Highlight parcel
+                                                    const objectId = props.OBJECTID;
+                                                    if (objectId !== undefined && objectId !== null) {
+                                                        map.setFilter('parcels-highlight', ['==', 'OBJECTID', objectId]);
+                                                        map.setFilter('parcels-highlight-fill', ['==', 'OBJECTID', objectId]);
+                                                    }
+
+                                                    // Draw dimensions
+                                                    drawDimensions(clickedFeature, map);
+
+                                                    // Set selected state
+                                                    setSelected({
+                                                        id: normalized.object_id || '',
+                                                        so_thua: normalized.so_thua,
+                                                        so_to: normalized.so_to,
+                                                        dien_tich: normalized.dien_tich,
+                                                        muc_dich: normalized.muc_dich,
+                                                        dia_chi: normalized.dia_chi,
+                                                        ma_xa: normalized.ma_xa,
+                                                        coordinates: [deepLink.lng, deepLink.lat]
+                                                    });
+                                                    setView('info');
+                                                    console.log('[DeepLink] ✅ Parcel selected from shared link');
+                                                } else {
+                                                    console.warn('[DeepLink] No parcel found at shared coordinates');
                                                 }
                                             } catch (err) {
                                                 console.warn('[DeepLink] Parcel lookup failed:', err);
                                             }
-                                        }, 1600);
+                                        }, 2000);
                                     }
                                 }
                 });
@@ -1141,7 +1166,7 @@
             return (
                 <div className="relative w-full h-full select-none bg-slate-900">
                     {/* Search Bar */}
-                        <div className="absolute top-4 left-4 right-4 z-50" style={{maxWidth: '600px', margin: '0 auto'}}>
+                        <div className="absolute top-4 left-4 right-16 z-50" style={{maxWidth: '600px'}}>
                             <form onSubmit={handleSearch} className="bg-white rounded-2xl shadow-lg border border-slate-200">
                                 <div className="flex items-center px-4 py-3">
                                     <Icons.Search />
@@ -1201,8 +1226,8 @@
                             </form>
                         </div>
 
-                        {/* Auth Button */}
-                        <div className="absolute top-4 right-4 z-50">
+                        {/* Auth Button - Mobile Friendly Position */}
+                        <div className="absolute top-20 right-4 z-50" style={{maxWidth: '200px'}}>
                             {authUser ? (
                                 <div className="relative">
                                     <button

@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CDN Load Test</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #1e293b; color: #e2e8f0; }
+        .status { margin: 10px 0; padding: 10px; border-left: 3px solid #64748b; background: #0f172a; }
+        .ok { border-left-color: #22c55e; }
+        .fail { border-left-color: #ef4444; }
+        h2 { color: #60a5fa; }
+        pre { background: #334155; padding: 10px; overflow-x: auto; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <h1>🔍 CDN Detailed Load Test</h1>
+    
+    <h2>1. Tracking CDN Loads</h2>
+    <div id="tracking"></div>
+    
+    <h2>2. Testing PMTiles in Isolation</h2>
+    <div id="pmtiles-test"></div>
+</body>
+
+<script>
+    // Exactly replicate index.html tracking
+    window.__CDN_LOAD_STATUS__ = {};
+    window.__trackCDN = (name, success) => {
+        window.__CDN_LOAD_STATUS__[name] = success;
+        const div = document.getElementById('tracking');
+        const item = document.createElement('div');
+        item.className = `status ${success ? 'ok' : 'fail'}`;
+        item.innerHTML = `${success ? '✓' : '✗'} ${name}`;
+        div.appendChild(item);
+        console.log(`[CDN] ${name}: ${success ? '✓ OK' : '✗ FAILED'}`);
+    };
+</script>
+
+<!-- Exact CDN loading sequence from index.html -->
+<script src="https://cdn.jsdelivr.net/npm/pmtiles@3/dist/index.js" onload="window.__trackCDN('pmtiles-jsDelivr', true)" onerror="window.__trackCDN('pmtiles-jsDelivr', false)"></script>
+<script>
+    // After 500ms, check status and show result
+    setTimeout(() => {
+        const div = document.getElementById('pmtiles-test');
+        const status = document.createElement('div');
+        
+        if (typeof window.pmtiles !== 'undefined') {
+            status.className = 'status ok';
+            status.innerHTML = `<strong>✓ PMTiles loaded successfully</strong><br/>Type: ${typeof window.pmtiles}`;
+            
+            if (typeof window.pmtiles.Protocol === 'function') {
+                const test2 = document.createElement('div');
+                test2.className = 'status ok';
+                test2.innerHTML = `<strong>✓ PMTiles.Protocol function exists</strong>`;
+                div.appendChild(test2);
+            }
+        } else {
+            status.className = 'status fail';
+            status.innerHTML = `<strong>✗ PMTiles NOT loaded</strong><br/>window.pmtiles is: ${typeof window.pmtiles}`;
+        }
+        
+        div.appendChild(status);
+        
+        // Show all globals
+        const globals = document.createElement('div');
+        globals.innerHTML = `<h3>Window Objects:</h3><pre>${JSON.stringify({
+            pmtiles: typeof window.pmtiles,
+            PMTiles: typeof window.PMTiles,
+            pmtilesLib: typeof window.pmtilesLib
+        }, null, 2)}</pre>`;
+        div.appendChild(globals);
+        
+        // Show CDN tracking
+        const tracking = document.createElement('div');
+        tracking.innerHTML = `<h3>CDN Tracking:</h3><pre>${JSON.stringify(window.__CDN_LOAD_STATUS__, null, 2)}</pre>`;
+        div.appendChild(tracking);
+    }, 1000);
+</script>
+</html>

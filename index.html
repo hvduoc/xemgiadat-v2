@@ -586,10 +586,10 @@
                         },
                         layers: [
                             { id: 'osm', type: 'raster', source: 'osm' },
-                            { id: 'parcels-line', type: 'line', source: 'parcels', 'source-layer': 'default', paint: { 'line-color': '#3B82F6', 'line-width': 1.5 } },
                             { id: 'parcels-fill-clickable', type: 'fill', source: 'parcels', 'source-layer': 'default', paint: { 'fill-color': 'transparent' } },
-                            { id: 'parcels-highlight-fill', type: 'fill', source: 'parcels', 'source-layer': 'default', filter: ['==', ['id'], -1], paint: { 'fill-color': '#FBBF24', 'fill-opacity': 0.4 } },
-                            { id: 'parcels-highlight', type: 'line', source: 'parcels', 'source-layer': 'default', filter: ['==', ['id'], -1], paint: { 'line-color': '#F59E0B', 'line-width': 4, 'line-blur': 1 } }
+                            { id: 'parcels-line', type: 'line', source: 'parcels', 'source-layer': 'default', paint: { 'line-color': '#3B82F6', 'line-width': 1.5 } },
+                            { id: 'parcels-highlight-fill', type: 'fill', source: 'parcels', 'source-layer': 'default', filter: ['==', ['id'], -1], paint: { 'fill-color': '#FBBF24', 'fill-opacity': 0.5 } },
+                            { id: 'parcels-highlight', type: 'line', source: 'parcels', 'source-layer': 'default', filter: ['==', ['id'], -1], paint: { 'line-color': '#F59E0B', 'line-width': 5 } }
                         ]
                     },
                     center: [108.2022, 16.0544],
@@ -603,37 +603,60 @@
                 // Parcel click handler
                 map.on('click', 'parcels-fill-clickable', (e) => {
                     if (!e.features?.[0]) return;
-                    const props = e.features[0].properties || {};
                     
-                    // Debug: Log raw properties
+                    // Get the clicked feature
+                    const clickedFeature = e.features[0];
+                    const props = clickedFeature.properties || {};
+                    
+                    // Debug: Log ALL property information
+                    console.log('[Click] ===== FEATURE DEBUG =====');
+                    console.log('[Click] Feature ID:', clickedFeature.id);
+                    console.log('[Click] Feature type:', clickedFeature.geometry?.type);
                     console.log('[Click] Raw properties:', props);
-                    console.log('[Click] All keys:', Object.keys(props));
-                    console.log('[Click] Feature ID:', e.features[0].id);
+                    console.log('[Click] All property keys:', Object.keys(props));
+                    console.log('[Click] All property values:');
+                    Object.entries(props).forEach(([key, val]) => {
+                        console.log(`  ${key}: ${val} (${typeof val})`);
+                    });
                     
                     const normalized = normalizeParcelProps(props);
-                    console.log('[Click] Normalized:', normalized);
+                    console.log('[Click] Normalized data:', normalized);
                     
-                    // Highlight parcel - use feature.id directly (number type)
-                    const parcelId = e.features[0].id;
+                    // Highlight parcel - use feature.id directly
+                    const parcelId = clickedFeature.id;
                     if (parcelId !== undefined && parcelId !== null) {
-                        console.log('[Highlight] Setting highlight for ID:', parcelId);
-                        map.setFilter('parcels-highlight', ['==', ['id'], Number(parcelId)]);
-                        map.setFilter('parcels-highlight-fill', ['==', ['id'], Number(parcelId)]);
+                        console.log('[Highlight] Setting highlight for ID:', parcelId, '(type:', typeof parcelId, ')');
+                        
+                        // Try both number and string to ensure compatibility
+                        map.setPaintProperty('parcels-highlight', 'line-color', '#F59E0B');
+                        map.setPaintProperty('parcels-highlight', 'line-width', 5);
+                        map.setFilter('parcels-highlight', ['==', ['id'], parcelId]);
+                        map.setFilter('parcels-highlight-fill', ['==', ['id'], parcelId]);
+                        
+                        // Verify filter was set
+                        setTimeout(() => {
+                            const filter = map.getFilter('parcels-highlight');
+                            console.log('[Highlight] Current filter:', JSON.stringify(filter));
+                        }, 100);
                     } else {
-                        console.warn('[Highlight] No valid parcelId found');
+                        console.warn('[Highlight] ⚠️ No valid parcelId found');
                     }
                     
                     // Draw dimension labels on polygon edges
-                    drawDimensions(e.features[0], map);
+                    drawDimensions(clickedFeature, map);
                     
-                    setSelected({
-                        id: e.features[0].id || normalized.object_id || '',
+                    // Set selected state with data
+                    const selectedData = {
+                        id: clickedFeature.id || normalized.object_id || '',
                         so_thua: normalized.so_thua || 'N/A',
                         so_to: normalized.so_to || 'N/A',
                         dien_tich: normalized.dien_tich || 0,
                         muc_dich: normalized.muc_dich || 'Chưa rõ',
                         dia_chi: normalized.dia_chi || 'Chưa có'
-                    });
+                    };
+                    
+                    console.log('[Click] Setting selected data:', selectedData);
+                    setSelected(selectedData);
                     setView('info');
                 });
                 

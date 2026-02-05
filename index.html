@@ -6,9 +6,9 @@
     <title>XemGiaDat V2 - GIS Standalone Pro</title>
     
     <!-- CDNs ĐIỀU KIỆN TIÊN QUYẾT -->
+    <script src="https://unpkg.com/pmtiles@3.2.0/dist/index.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
-    <script src="https://unpkg.com/pmtiles@3.2.0/dist/index.js"></script>
     <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -332,13 +332,13 @@
                 }
 
                 // Khởi tạo Protocol PMTiles
-                const PMTilesLib = window.pmtiles || window.PMTiles;
-                if (!PMTilesLib) {
+                if (window.pmtiles) {
+                    const protocol = new window.pmtiles.Protocol();
+                    window.maplibregl.addProtocol("pmtiles", protocol.tile);
+                } else {
                     console.error("PMTiles library not found!");
                     return;
                 }
-                const protocol = new window.pmtiles.Protocol();
-                window.maplibregl.addProtocol("pmtiles", protocol.tile);
 
                 const map = new window.maplibregl.Map({
                     container: mapContainer.current,

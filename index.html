@@ -13,37 +13,13 @@
             console.log(`[CDN] ${name}: ${success ? '✓ OK' : '✗ FAILED'}`);
         };
     </script>
-    <!-- PMTiles: try jsDelivr first, then unpkg fallback -->
-    <script src="https://cdn.jsdelivr.net/npm/pmtiles@3/dist/index.js" onload="window.__trackCDN('pmtiles', true); console.log('[PMTiles] Loaded. Checking globals:', Object.keys(window).filter(k => k.toLowerCase().includes('pmtiles') || k === 'PMTiles' || k === 'pmtilesLib'))" onerror="window.__trackCDN('pmtiles-jsDelivr', false); const fallbackScript = document.createElement('script'); fallbackScript.src = 'https://unpkg.com/pmtiles@3/dist/index.js'; fallbackScript.onload = () => { window.__trackCDN('pmtiles-fallback', true); console.log('[PMTiles] Fallback loaded'); }; fallbackScript.onerror = () => window.__trackCDN('pmtiles-fallback', false); document.head.appendChild(fallbackScript);"></script>
+    <!-- Core Libraries (no PMTiles - using OSM raster only) -->
     <link href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
     <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.js" onload="window.__trackCDN('maplibregl', true)" onerror="window.__trackCDN('maplibregl', false)"></script>
     <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js" onload="window.__trackCDN('react', true)" onerror="window.__trackCDN('react', false)"></script>
     <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js" onload="window.__trackCDN('react-dom', true)" onerror="window.__trackCDN('react-dom', false)"></script>
     <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.23.5/babel.min.js" onload="window.__trackCDN('babel', true)" onerror="window.__trackCDN('babel', false)"></script>
     <script src="https://cdn.tailwindcss.com" onerror="console.warn('[CDN] Tailwind CDN failed')"></script>
-
-    <script>
-        // Auto-detect PMTiles global - v3 may export as different name
-        setTimeout(() => {
-            const candidates = ['pmtiles', 'PMTiles', 'pmtilesLib', 'PmTiles'];
-            let found = false;
-            
-            for (const name of candidates) {
-                if (window[name] !== undefined && !window.pmtiles) {
-                    window.pmtiles = window[name];
-                    window.__pmtiles_global_found = name;
-                    console.log(`[PMTiles] Auto-detected: window.${name} → window.pmtiles`);
-                    found = true;
-                    break;
-                }
-            }
-            
-            if (!found) {
-                const pmKeys = Object.keys(window).filter(k => /pmtiles|protocol/i.test(k));
-                console.warn('[PMTiles] ⚠ Could not auto-detect PMTiles. Found keys:', pmKeys.slice(0, 5));
-            }
-        }, 100);
-    </script>
 
     <style>
         body, html, #root { 
@@ -71,20 +47,12 @@
     <div id="root"></div>
 
     <script>
-        console.log('[INIT] XemGiaDat v2 initialization started');
+        console.log('[INIT] XemGiaDat v2 initialization started (OSM Raster mode)');
         
         /**
-         * 1. CẦU CHÌ BẢO VỆ (SAFE_LOC)
-         * Bypass triệt để lỗi "Blocked a frame with origin..."
+         * 1. CẦU CHÌ BẢO VỆ (SAFE_LOC) - Bypass "Blocked a frame with origin..."
          */
         const setupSafeLocation = () => {
-            console.log('[INIT] Checking CDN globals...');
-            console.log('[CDN] Load Status:', window.__CDN_LOAD_STATUS__);
-            console.log('  - window.pmtiles:', typeof window.pmtiles !== 'undefined');
-            console.log('  - window.maplibregl:', typeof window.maplibregl !== 'undefined');
-            console.log('  - window.React:', typeof window.React !== 'undefined');
-            console.log('  - window.ReactDOM:', typeof window.ReactDOM !== 'undefined');
-            
             const fakeLoc = { 
                 href: 'https://xemgiadat.com/', 
                 origin: 'https://xemgiadat.com', 
@@ -110,69 +78,8 @@
                 window.__SAFE_LOCATION__ = fakeLoc;
                 console.warn('[INIT] window.location override failed, using fallback:', e.message);
             }
-
-            // Handle multiple PMTiles aliases from different CDNs
-            if (!window.pmtiles) {
-                // Try common aliases from different CDN sources
-                const aliases = ['PMTiles', 'pmtilesLib'];
-                for (const alias of aliases) {
-                    if (window[alias]) {
-                        window.pmtiles = window[alias];
-                        console.log(`[INIT] Aliased window.${alias} → window.pmtiles`);
-                        break;
-                    }
-                }
-                
-                if (!window.pmtiles) {
-                    console.warn('[INIT] ⚠ PMTiles CDN failed - checking fallback status...');
-                    console.log('[CDN] Fallback status:', {
-                        jsDelivr: window.__CDN_LOAD_STATUS__?.['pmtiles-jsDelivr'],
-                        unpkg: window.__CDN_LOAD_STATUS__?.['pmtiles-fallback']
-                    });
-                }
-            }
-            
-            // Try to register PMTiles protocol if available
-            if (window.pmtiles && typeof window.pmtiles.Protocol === 'function' && window.maplibregl) {
-                try {
-                    const protocol = new window.pmtiles.Protocol();
-                    window.maplibregl.addProtocol("pmtiles", protocol.tile);
-                    window.__pmtiles_protocol_registered = true;
-                    console.log('[INIT] ✓ PMTiles protocol registered successfully');
-                } catch (e) {
-                    console.error('[INIT] ✗ PMTiles protocol registration error:', e.message);
-                    console.log('[INIT] → Will fallback to OSM tiles only');
-                }
-            } else {
-                const missing = [];
-                if (!window.pmtiles) missing.push('pmtiles');
-                if (typeof window.pmtiles?.Protocol !== 'function') missing.push('pmtiles.Protocol');
-                if (!window.maplibregl) missing.push('maplibregl');
-                if (missing.length) {
-                    console.warn('[INIT] ⚠ Cannot register PMTiles protocol - missing:', missing.join(', '));
-                }
-            }
         };
         setupSafeLocation();
-        
-        // Delayed re-check for PMTiles after auto-detection script runs
-        setTimeout(() => {
-            if (!window.pmtiles) {
-                console.warn('[INIT] PMTiles still not available after auto-detection');
-            } else {
-                // PMTiles was detected - try to register protocol
-                if (window.maplibregl && !window.__pmtiles_protocol_registered) {
-                    try {
-                        const protocol = new window.pmtiles.Protocol();
-                        window.maplibregl.addProtocol("pmtiles", protocol.tile);
-                        window.__pmtiles_protocol_registered = true;
-                        console.log('[INIT] ✓ PMTiles protocol registered (via delayed init)');
-                    } catch (e) {
-                        console.error('[INIT] ✗ Delayed PMTiles registration failed:', e.message);
-                    }
-                }
-            }
-        }, 150);
 
         /**
          * 2. MAP CONTROLLER (Inline Implementation)
@@ -411,26 +318,9 @@
             const [isSubmitting, setIsSubmitting] = useState(false);
 
             useEffect(() => {
-                // Thiết lập worker an toàn
+                // Setup worker URL
                 if (window.maplibregl) {
                     window.maplibregl.workerUrl = 'https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl-csp-worker.js';
-                }
-
-                // PMTiles protocol should already be registered in setupSafeLocation
-                // But try again if it wasn't successful
-                if (window.pmtiles && !window.__pmtiles_protocol_registered) {
-                    try {
-                        const protocol = new window.pmtiles.Protocol();
-                        window.maplibregl.addProtocol("pmtiles", protocol.tile);
-                        window.__pmtiles_protocol_registered = true;
-                        console.log('[MAP] ✓ PMTiles protocol registered in useEffect');
-                    } catch (e) {
-                        console.error('[MAP] ✗ PMTiles protocol registration failed:', e.message);
-                    }
-                }
-                
-                if (!window.pmtiles) {
-                    console.warn('[MAP] ⚠ PMTiles not available - will use OSM tiles only');
                 }
 
                 const map = new window.maplibregl.Map({
@@ -438,33 +328,10 @@
                     style: {
                         version: 8,
                         sources: {
-                            'osm': { type: 'raster', tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], tileSize: 256, attribution: '© OSM' },
-                            'parcels': {
-                                type: 'vector',
-                                url: 'pmtiles://xemgiadat.com/tiles/danang_parcels_final.pmtiles',
-                                minzoom: 10, maxzoom: 20
-                            }
+                            'osm': { type: 'raster', tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], tileSize: 256, attribution: '© OpenStreetMap contributors' }
                         },
                         layers: [
-                            { id: 'osm', type: 'raster', source: 'osm' },
-                            {
-                                id: 'parcels-line', type: 'line', source: 'parcels', 'source-layer': 'default',
-                                paint: { 'line-color': '#64748b', 'line-width': 0.5, 'line-opacity': 0.4 }
-                            },
-                            {
-                                id: 'parcels-fill-clickable', type: 'fill', source: 'parcels', 'source-layer': 'default',
-                                paint: { 'fill-color': 'rgba(255, 255, 255, 0)' }
-                            },
-                            {
-                                id: 'parcels-highlight', type: 'line', source: 'parcels', 'source-layer': 'default',
-                                paint: { 'line-color': '#fde047', 'line-width': 4 },
-                                filter: ['==', ['id'], '']
-                            },
-                            {
-                                id: 'parcels-highlight-fill', type: 'fill', source: 'parcels', 'source-layer': 'default',
-                                paint: { 'fill-color': 'rgba(253, 224, 71, 0.25)' },
-                                filter: ['==', ['id'], '']
-                            }
+                            { id: 'osm', type: 'raster', source: 'osm' }
                         ]
                     },
                     center: [108.2022, 16.0544],
@@ -472,27 +339,6 @@
                     hash: false,
                     attributionControl: false
                 });
-
-                map.on('click', 'parcels-fill-clickable', (e) => {
-                    const f = e.features[0];
-                    if (f) {
-                        const id = f.id || f.properties.OBJECTID;
-                        setSelected({
-                            id,
-                            so_thua: f.properties['Số thửa'] || 'N/A',
-                            so_to: f.properties['Số hiệu tờ bản đồ'] || 'N/A',
-                            dien_tich: parseFloat(f.properties['Diện tích'] || 0),
-                            muc_dich: f.properties['Ký hiệu mục đích sử dụng'] || 'N/A',
-                            dia_chi: f.properties['Địa chỉ'] !== 'Null' ? f.properties['Địa chỉ'] : 'TP. Đà Nẵng'
-                        });
-                        setView('info');
-                        map.setFilter('parcels-highlight', ['==', ['id'], id]);
-                        map.setFilter('parcels-highlight-fill', ['==', ['id'], id]);
-                    }
-                });
-
-                map.on('mouseenter', 'parcels-fill-clickable', () => map.getCanvas().style.cursor = 'pointer');
-                map.on('mouseleave', 'parcels-fill-clickable', () => map.getCanvas().style.cursor = '');
 
                 mapRef.current = map;
                 

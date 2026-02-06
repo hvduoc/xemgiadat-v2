@@ -808,6 +808,26 @@
                 }
             };
 
+            const buildListingPopupHtml = (props) => {
+                const soTo = props.so_to || 'N/A';
+                const soThua = props.so_thua || 'N/A';
+                const dienTich = props.dien_tich || 0;
+                const price = props.priceValue || 0;
+                const userName = props.userName || 'Nguoi dang';
+
+                const priceText = price > 0
+                    ? new Intl.NumberFormat('vi-VN').format(price) + ' VND'
+                    : 'Chua ro';
+
+                return `
+                    <div style="min-width:180px">
+                        <div style="font-weight:800;color:#0f172a">Thua ${soThua} / To ${soTo}</div>
+                        <div style="font-size:12px;color:#64748b;margin-top:4px">${dienTich} m2 · ${priceText}</div>
+                        <div style="font-size:11px;color:#94a3b8;margin-top:6px">Dang boi ${userName}</div>
+                    </div>
+                `;
+            };
+
             // Clear dimensions and highlight when selected is cleared
             useEffect(() => {
                 if (selected === null && window.__clearDimensionsAndHighlight) {
@@ -1011,6 +1031,50 @@
 
                     ensureListingsLayers(map);
                     refreshListings(map);
+
+                    map.on('click', LISTINGS_LAYER_CLUSTERS, (e) => {
+                        const features = map.queryRenderedFeatures(e.point, {
+                            layers: [LISTINGS_LAYER_CLUSTERS]
+                        });
+                        const cluster = features?.[0];
+                        const clusterId = cluster?.properties?.cluster_id;
+                        const source = map.getSource(LISTINGS_SOURCE_ID);
+                        if (!source || clusterId === undefined) return;
+
+                        source.getClusterExpansionZoom(clusterId, (err, zoom) => {
+                            if (err) return;
+                            map.easeTo({
+                                center: cluster.geometry.coordinates,
+                                zoom
+                            });
+                        });
+                    });
+
+                    map.on('click', LISTINGS_LAYER_POINTS, (e) => {
+                        const feature = e.features?.[0];
+                        if (!feature) return;
+
+                        const popup = new window.maplibregl.Popup({ offset: 12 })
+                            .setLngLat(feature.geometry.coordinates)
+                            .setHTML(buildListingPopupHtml(feature.properties || {}))
+                            .addTo(map);
+
+                        // Auto-close when user clicks elsewhere
+                        map.once('click', () => popup.remove());
+                    });
+
+                    map.on('mouseenter', LISTINGS_LAYER_CLUSTERS, () => {
+                        map.getCanvas().style.cursor = 'pointer';
+                    });
+                    map.on('mouseleave', LISTINGS_LAYER_CLUSTERS, () => {
+                        map.getCanvas().style.cursor = '';
+                    });
+                    map.on('mouseenter', LISTINGS_LAYER_POINTS, () => {
+                        map.getCanvas().style.cursor = 'pointer';
+                    });
+                    map.on('mouseleave', LISTINGS_LAYER_POINTS, () => {
+                        map.getCanvas().style.cursor = '';
+                    });
                 
                                 // Auto-update cache when map stops moving
                                 map.on('idle', () => {

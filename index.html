@@ -1224,7 +1224,83 @@
 
                 mapRef.current = map;
                 
-                // Parcel click handler
+                // PRIORITY 1: Listings click handlers (MUST BE BEFORE parcel handler)
+                // This ensures listing points are clickable even when overlapping with parcels
+                map.on('click', LISTINGS_LAYER_CLUSTERS, (e) => {
+                    // Auto-close search dropdown
+                    setSearchResults([]);
+                    setSearchQuery('');
+                    
+                    const features = map.queryRenderedFeatures(e.point, {
+                        layers: [LISTINGS_LAYER_CLUSTERS]
+                    });
+                    const cluster = features?.[0];
+                    const clusterId = cluster?.properties?.cluster_id;
+                    const source = map.getSource(LISTINGS_SOURCE_ID);
+                    if (!source || clusterId === undefined) return;
+
+                    source.getClusterExpansionZoom(clusterId, (err, zoom) => {
+                        if (err) return;
+                        map.easeTo({
+                            center: cluster.geometry.coordinates,
+                            zoom
+                        });
+                    });
+                    
+                    // Prevent parcel click
+                    e.originalEvent.stopPropagation();
+                });
+
+                map.on('click', LISTINGS_LAYER_POINTS, (e) => {
+                    console.log('[Listings] Point clicked!', e.features?.[0]);
+                    
+                    // Auto-close search dropdown
+                    setSearchResults([]);
+                    setSearchQuery('');
+                    
+                    const feature = e.features?.[0];
+                    if (!feature) return;
+
+                    // Validate geometry type
+                    const geometry = feature.geometry;
+                    if (geometry.type !== 'Point') {
+                        console.warn('[Listings] Expected Point geometry, got:', geometry.type);
+                        return;
+                    }
+
+                    // Extract listing data from feature properties
+                    const props = feature.properties;
+                    const coords = geometry.coordinates;
+                    
+                    const listingData = {
+                        id: props.id,
+                        userId: props.userId || '',
+                        so_to: props.so_to || '',
+                        so_thua: props.so_thua || '',
+                        dien_tich: props.dien_tich || 0,
+                        priceValue: props.priceValue || 0,
+                        priceUnit: props.priceUnit || 'VND',
+                        isNegotiable: props.isNegotiable || false,
+                        loaiGiaoDich: props.loaiGiaoDich || 'ban-dat',
+                        userName: props.userName || 'Người đăng',
+                        phone: props.phone || '',
+                        note: props.note || '',
+                        status: props.status || 'approved',
+                        coordinates: [coords[0], coords[1]]
+                    };
+
+                    // Show listing details in side panel
+                    setSelectedListing(listingData);
+                    setSelected(null);
+                    setView('listing-detail');
+                    
+                    console.log('[Listings] Listing selected:', listingData);
+                    
+                    // CRITICAL: Prevent parcel click from firing
+                    e.originalEvent.stopPropagation();
+                });
+                
+                // PRIORITY 2: Parcel click handler (comes after listings)
                 map.on('click', 'parcels-fill-clickable', (e) => {
                     if (!e.features?.[0]) return;
                     
@@ -1313,73 +1389,7 @@
                     ensureListingsLayers(map);
                     refreshListings(map);
 
-                    map.on('click', LISTINGS_LAYER_CLUSTERS, (e) => {
-                        // Auto-close search dropdown
-                        setSearchResults([]);
-                        setSearchQuery('');
-                        
-                        const features = map.queryRenderedFeatures(e.point, {
-                            layers: [LISTINGS_LAYER_CLUSTERS]
-                        });
-                        const cluster = features?.[0];
-                        const clusterId = cluster?.properties?.cluster_id;
-                        const source = map.getSource(LISTINGS_SOURCE_ID);
-                        if (!source || clusterId === undefined) return;
-
-                        source.getClusterExpansionZoom(clusterId, (err, zoom) => {
-                            if (err) return;
-                            map.easeTo({
-                                center: cluster.geometry.coordinates,
-                                zoom
-                            });
-                        });
-                    });
-
-                    map.on('click', LISTINGS_LAYER_POINTS, (e) => {
-                        // Auto-close search dropdown
-                        setSearchResults([]);
-                        setSearchQuery('');
-                        
-                        const feature = e.features?.[0];
-                        if (!feature) return;
-
-                        // Validate geometry type
-                        const geometry = feature.geometry;
-                        if (geometry.type !== 'Point') {
-                            console.warn('[Listings] Expected Point geometry, got:', geometry.type);
-                            return;
-                        }
-
-                        // Extract listing data from feature properties
-                        const props = feature.properties;
-                        const coords = geometry.coordinates;
-                        
-                        const listingData = {
-                            id: props.id,
-                            userId: props.userId || '',
-                            so_to: props.so_to || '',
-                            so_thua: props.so_thua || '',
-                            dien_tich: props.dien_tich || 0,
-                            priceValue: props.priceValue || 0,
-                            priceUnit: props.priceUnit || 'VND',
-                            isNegotiable: props.isNegotiable || false,
-                            loaiGiaoDich: props.loaiGiaoDich || 'ban-dat',
-                            userName: props.userName || 'Người đăng',
-                            phone: props.phone || '',
-                            note: props.note || '',
-                            status: props.status || 'approved',
-                            coordinates: [coords[0], coords[1]]
-                        };
-
-                        // Show listing details in side panel
-                        setSelectedListing(listingData);
-                        setSelected(null);
-                        setView('listing-detail');
-                        
-                        // Prevent default parcel click from firing
-                        e.originalEvent.stopPropagation();
-                    });
-
+                    // Mouse cursor handlers for listings
                     map.on('mouseenter', LISTINGS_LAYER_CLUSTERS, () => {
                         map.getCanvas().style.cursor = 'pointer';
                     });
@@ -1551,6 +1561,53 @@
                     soTo: getParam('soTo') || null,
                     soThua: getParam('soThua') || null
                 };
+            };
+
+            // ===== HELPER FUNCTIONS FOR PREMIUM FEATURES =====
+            
+            // Haptic feedback simulation
+            const triggerHaptic = (type) => {
+                const durations = { light: 10, medium: 20, heavy: 30 };
+                if ('vibrate' in navigator) {
+                    navigator.vibrate(durations[type] || 20);
+                }
+            };
+
+            // Toggle 3D view
+            const toggle3DView = () => {
+                const map = mapRef.current;
+                if (!map) return;
+                
+                triggerHaptic('medium');
+                
+                if (!is3DView) {
+                    map.easeTo({ pitch: 60, bearing: -20, duration: 1000 });
+                    setIs3DView(true);
+                } else {
+                    map.easeTo({ pitch: 0, bearing: 0, duration: 1000 });
+                    setIs3DView(false);
+                }
+            };
+
+            // Get AI insight for parcel
+            const getAIInsight = (item) => {
+                if (!window.AIInsightService) return null;
+                if (item.priceValue) {
+                    return window.AIInsightService.getListingInsight(item);
+                } else if (item.dien_tich) {
+                    // Add fake price for demo
+                    return window.AIInsightService.getPriceInsight({
+                        ...item,
+                        gia_uoc_tinh: item.dien_tich * 5000000 // 5M/m² estimate
+                    });
+                }
+                return null;
+            };
+
+            // Get status badges
+            const getStatusBadges = (item) => {
+                if (!window.AIInsightService) return [];
+                return window.AIInsightService.getStatusBadges(item || {});
             };
 
             const submitForm = async () => {
@@ -1754,9 +1811,9 @@
                 <div className="relative w-full h-full select-none bg-slate-900">
                     {/* Search Bar */}
                     <div className="absolute top-4 left-4 right-4 z-50 flex items-center gap-2">
-                        {/* Search Bar */}
+                        {/* Search Bar with Glassmorphism */}
                         <div className="flex-1" style={{maxWidth: '600px'}}>
-                            <form onSubmit={handleSearch} className="bg-white rounded-2xl shadow-lg border border-slate-200">
+                            <form onSubmit={handleSearch} className="rounded-2xl shadow-2xl border" style={{backdropFilter: 'blur(24px)', backgroundColor: 'rgba(255, 255, 255, 0.9)', borderColor: 'rgba(255, 255, 255, 0.2)'}}>
                                 <div className="flex items-center px-4 py-3">
                                     <Icons.Search />
                                     <input 
@@ -1860,16 +1917,65 @@
 
                     <div ref={mapContainer} className="map-container" />
 
+                    {/* 3D View Toggle Button */}
+                    <div className="absolute bottom-28 right-4 z-50">
+                        <button
+                            onClick={toggle3DView}
+                            className="rounded-2xl shadow-2xl border p-4 transition-all"
+                            style={{
+                                backdropFilter: 'blur(24px)',
+                                backgroundColor: is3DView ? 'rgba(37, 99, 235, 0.9)' : 'rgba(255, 255, 255, 0.9)',
+                                borderColor: is3DView ? 'rgba(96, 165, 250, 0.2)' : 'rgba(255, 255, 255, 0.2)'
+                            }}
+                            aria-label={is3DView ? 'Chuyển về 2D' : 'Chuyển sang 3D'}
+                        >
+                            <Icons.Box className={is3DView ? 'text-white' : 'text-slate-700'} />
+                            <div className="text-xs font-bold mt-1" style={{color: is3DView ? 'white' : '#334155'}}>
+                                {is3DView ? '2D' : '3D'}
+                            </div>
+                        </button>
+                    </div>
+
                     {(selected || selectedListing) && (
                         <div className="absolute bottom-0 inset-x-0 z-[100] bottom-sheet">
-                            <div className="max-w-xl mx-auto bg-white rounded-t-[2.5rem] shadow-[0_-10px_60px_rgba(0,0,0,0.3)] pb-safe border-t border-slate-100 overflow-hidden">
+                            <div className="max-w-xl mx-auto rounded-t-[2.5rem] pb-safe border-t overflow-hidden" style={{backdropFilter: 'blur(48px)', backgroundColor: 'rgba(255, 255, 255, 0.95)', boxShadow: '0 -20px 60px rgba(0, 0, 0, 0.3)', borderColor: 'rgba(255, 255, 255, 0.2)'}}>
                                 <div className="h-10 flex justify-center items-center cursor-pointer" onClick={() => { setSelected(null); setSelectedListing(null); }}>
-                                    <div className="w-12 h-1.5 bg-slate-200 rounded-full" />
+                                    <div className="w-12 h-1.5 bg-slate-300 rounded-full" />
                                 </div>
 
                                 <div className="px-5 pb-6 overflow-y-auto max-h-[80vh] scrollbar-hide">
                                     {view === 'info' && selected && (
                                         <div className="animate-slide-up">
+                                            {/* Status Badges */}
+                                            {getStatusBadges(selected).length > 0 && (
+                                                <div className="flex gap-2 mb-3 flex-wrap">
+                                                    {getStatusBadges(selected).map((badge, i) => (
+                                                        <span 
+                                                            key={i}
+                                                            className="px-3 py-1 rounded-full text-xs font-bold"
+                                                            style={{
+                                                                backdropFilter: 'blur(8px)',
+                                                                backgroundColor: badge.includes('Giá tốt') || badge.includes('Hợp lý') ? '#dcfce7' :
+                                                                    badge.includes('Cao cấp') || badge.includes('Hạng sang') ? '#f3e8ff' :
+                                                                    badge.includes('Mới đăng') ? '#dbeafe' :
+                                                                    badge.includes('Đã xác thực') ? '#d1fae5' : '#f1f5f9',
+                                                                color: badge.includes('Giá tốt') || badge.includes('Hợp lý') ? '#15803d' :
+                                                                    badge.includes('Cao cấp') || badge.includes('Hạng sang') ? '#7e22ce' :
+                                                                    badge.includes('Mới đăng') ? '#1e40af' :
+                                                                    badge.includes('Đã xác thực') ? '#047857' : '#475569',
+                                                                border: '1px solid',
+                                                                borderColor: badge.includes('Giá tốt') || badge.includes('Hợp lý') ? '#bbf7d0' :
+                                                                    badge.includes('Cao cấp') || badge.includes('Hạng sang') ? '#e9d5ff' :
+                                                                    badge.includes('Mới đăng') ? '#bfdbfe' :
+                                                                    badge.includes('Đã xác thực') ? '#a7f3d0' : '#e2e8f0'
+                                                            }}
+                                                        >
+                                                            {badge}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
+
                                             <div className="flex justify-between items-start mb-3 gap-2">
                                                 <div className="flex-1 min-w-0">
                                                     <h2 className="text-lg font-black text-slate-900 leading-tight">
@@ -1899,9 +2005,32 @@
                                                 </div>
                                             </div>
 
+                                            {/* AI Insights Section */}
+                                            {getAIInsight(selected) && (
+                                                <div className="p-5 rounded-2xl mb-3 border" style={{
+                                                    backdropFilter: 'blur(8px)',
+                                                    background: 'linear-gradient(to bottom right, rgba(238, 242, 255, 0.8), rgba(243, 232, 255, 0.8))',
+                                                    borderColor: 'rgba(199, 210, 254, 0.5)'
+                                                }}>
+                                                    <div className="flex items-center gap-2 mb-3">
+                                                        <Icons.Sparkles style={{color: '#4f46e5', width: '20px', height: '20px'}} />
+                                                        <span className="text-xs font-bold uppercase tracking-widest" style={{color: '#1e1b4b'}}>AI Đánh giá</span>
+                                                    </div>
+                                                    <div className="flex items-start gap-3">
+                                                        {getAIInsight(selected).type === 'good' && <Icons.TrendingDown style={{color: '#16a34a', width: '20px', height: '20px', flexShrink: 0, marginTop: '2px'}} />}
+                                                        {getAIInsight(selected).type === 'high' && <Icons.TrendingUp style={{color: '#9333ea', width: '20px', height: '20px', flexShrink: 0, marginTop: '2px'}} />}
+                                                        {getAIInsight(selected).type === 'potential' && <Icons.Eye style={{color: '#2563eb', width: '20px', height: '20px', flexShrink: 0, marginTop: '2px'}} />}
+                                                        <p className="text-sm leading-relaxed font-medium" style={{color: '#334155'}}>
+                                                            {getAIInsight(selected).message}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            )}
+
                                             <div className="grid grid-cols-3 gap-1.5">
                                                 <button 
                                                     onClick={() => {
+                                                        triggerHaptic('medium');
                                                         if (!authUser) {
                                                             alert('Vui lòng đăng nhập để đăng tin rao bán!');
                                                             setShowLogin(true);
@@ -1909,19 +2038,20 @@
                                                         }
                                                         setView('form');
                                                     }} 
-                                                    className="h-10 bg-slate-900 text-white rounded-lg font-black text-xs flex items-center justify-center gap-1"
+                                                    className="h-10 text-white rounded-lg font-black text-xs flex items-center justify-center gap-1 transition-all active:scale-95"
+                                                    style={{background: 'linear-gradient(to right, #0f172a, #1e293b)'}}
                                                 >
                                                     <Icons.Rocket /> Rao
                                                 </button>
                                                 <button
-                                                    onClick={() => setShareOpen(true)}
-                                                    className="h-10 bg-blue-600 text-white rounded-lg font-bold text-xs flex items-center justify-center gap-1"
+                                                    onClick={() => { triggerHaptic('light'); setShareOpen(true); }}
+                                                    className="h-10 bg-blue-600 text-white rounded-lg font-bold text-xs flex items-center justify-center gap-1 transition-all active:scale-95"
                                                 >
                                                     <Icons.Share /> Chia
                                                 </button>
                                                 <button
-                                                    onClick={() => shareToPlatform('copy')}
-                                                    className="h-10 bg-slate-600 text-white rounded-lg font-bold text-xs flex items-center justify-center gap-1"
+                                                    onClick={() => { triggerHaptic('light'); shareToPlatform('copy'); }}
+                                                    className="h-10 bg-slate-600 text-white rounded-lg font-bold text-xs flex items-center justify-center gap-1 transition-all active:scale-95"
                                                 >
                                                     <Icons.Copy /> Link
                                                 </button>
@@ -2025,6 +2155,36 @@
 
                                     {view === 'listing-detail' && selectedListing && (
                                         <div className="animate-slide-up">
+                                            {/* Status Badges */}
+                                            {getStatusBadges(selectedListing).length > 0 && (
+                                                <div className="flex gap-2 mb-3 flex-wrap">
+                                                    {getStatusBadges(selectedListing).map((badge, i) => (
+                                                        <span 
+                                                            key={i}
+                                                            className="px-3 py-1 rounded-full text-xs font-bold"
+                                                            style={{
+                                                                backdropFilter: 'blur(8px)',
+                                                                backgroundColor: badge.includes('Giá tốt') || badge.includes('Hợp lý') ? '#dcfce7' :
+                                                                    badge.includes('Cao cấp') || badge.includes('Hạng sang') ? '#f3e8ff' :
+                                                                    badge.includes('Mới đăng') ? '#dbeafe' :
+                                                                    badge.includes('Đã xác thực') ? '#d1fae5' : '#f1f5f9',
+                                                                color: badge.includes('Giá tốt') || badge.includes('Hợp lý') ? '#15803d' :
+                                                                    badge.includes('Cao cấp') || badge.includes('Hạng sang') ? '#7e22ce' :
+                                                                    badge.includes('Mới đăng') ? '#1e40af' :
+                                                                    badge.includes('Đã xác thực') ? '#047857' : '#475569',
+                                                                border: '1px solid',
+                                                                borderColor: badge.includes('Giá tốt') || badge.includes('Hợp lý') ? '#bbf7d0' :
+                                                                    badge.includes('Cao cấp') || badge.includes('Hạng sang') ? '#e9d5ff' :
+                                                                    badge.includes('Mới đăng') ? '#bfdbfe' :
+                                                                    badge.includes('Đã xác thực') ? '#a7f3d0' : '#e2e8f0'
+                                                            }}
+                                                        >
+                                                            {badge}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
+
                                             <div className="flex justify-between items-start mb-3 gap-2">
                                                 <div className="flex-1 min-w-0">
                                                     <h2 className="text-lg font-black text-slate-900 leading-tight">
@@ -2069,6 +2229,28 @@
                                                 </div>
                                             )}
 
+                                            {/* AI Insights Section */}
+                                            {getAIInsight(selectedListing) && (
+                                                <div className="p-5 rounded-2xl mb-3 border" style={{
+                                                    backdropFilter: 'blur(8px)',
+                                                    background: 'linear-gradient(to bottom right, rgba(238, 242, 255, 0.8), rgba(243, 232, 255, 0.8))',
+                                                    borderColor: 'rgba(199, 210, 254, 0.5)'
+                                                }}>
+                                                    <div className="flex items-center gap-2 mb-3">
+                                                        <Icons.Sparkles style={{color: '#4f46e5', width: '20px', height: '20px'}} />
+                                                        <span className="text-xs font-bold uppercase tracking-widest" style={{color: '#1e1b4b'}}>AI Đánh giá</span>
+                                                    </div>
+                                                    <div className="flex items-start gap-3">
+                                                        {getAIInsight(selectedListing).type === 'good' && <Icons.TrendingDown style={{color: '#16a34a', width: '20px', height: '20px', flexShrink: 0, marginTop: '2px'}} />}
+                                                        {getAIInsight(selectedListing).type === 'high' && <Icons.TrendingUp style={{color: '#9333ea', width: '20px', height: '20px', flexShrink: 0, marginTop: '2px'}} />}
+                                                        {getAIInsight(selectedListing).type === 'potential' && <Icons.Eye style={{color: '#2563eb', width: '20px', height: '20px', flexShrink: 0, marginTop: '2px'}} />}
+                                                        <p className="text-sm leading-relaxed font-medium" style={{color: '#334155'}}>
+                                                            {getAIInsight(selectedListing).message}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            )}
+
                                             <div className="bg-slate-50 border border-slate-200 p-3 rounded-lg mb-3">
                                                 <div className="flex items-center gap-1 mb-2">
                                                     <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
@@ -2087,17 +2269,21 @@
                                                 {selectedListing.phone && (
                                                     <a 
                                                         href={`tel:${selectedListing.phone}`}
-                                                        className="h-10 bg-green-600 text-white rounded-lg font-black text-xs flex items-center justify-center gap-1 col-span-3"
+                                                        onClick={() => triggerHaptic('heavy')}
+                                                        className="h-10 text-white rounded-lg font-black text-xs flex items-center justify-center gap-1 col-span-3 transition-all active:scale-95"
+                                                        style={{background: 'linear-gradient(to right, #16a34a, #15803d)'}}
                                                     >
                                                         <Icons.Phone className="w-4 h-4" /> Gọi ngay
                                                     </a>
                                                 )}
                                                 <button
                                                     onClick={() => {
+                                                        triggerHaptic('medium');
                                                         BookmarkService.toggleBookmark(selectedListing.id);
                                                         setSelectedListing({...selectedListing}); // Force re-render
                                                     }}
-                                                    className="h-10 bg-slate-100 text-slate-700 rounded-lg font-bold text-xs flex items-center justify-center gap-1"
+                                                    className="h-10 text-slate-700 rounded-lg font-bold text-xs flex items-center justify-center gap-1 transition-all active:scale-95"
+                                                    style={{backdropFilter: 'blur(8px)', backgroundColor: 'rgba(241, 245, 249, 0.8)'}}
                                                 >
                                                     {BookmarkService.isBookmarked(selectedListing.id) ? 
                                                         <><Icons.BookmarkCheck className="w-4 h-4" /> Đã lưu</> : 

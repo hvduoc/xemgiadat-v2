@@ -991,6 +991,10 @@
                 map.on('click', 'parcels-fill-clickable', (e) => {
                     if (!e.features?.[0]) return;
                     
+                    // Auto-close search dropdown when parcel is selected
+                    setSearchResults([]);
+                    setSearchQuery('');
+                    
                     // Get the clicked feature
                     const clickedFeature = e.features[0];
                     const props = clickedFeature.properties || {};
@@ -1073,6 +1077,10 @@
                     refreshListings(map);
 
                     map.on('click', LISTINGS_LAYER_CLUSTERS, (e) => {
+                        // Auto-close search dropdown
+                        setSearchResults([]);
+                        setSearchQuery('');
+                        
                         const features = map.queryRenderedFeatures(e.point, {
                             layers: [LISTINGS_LAYER_CLUSTERS]
                         });
@@ -1091,6 +1099,10 @@
                     });
 
                     map.on('click', LISTINGS_LAYER_POINTS, (e) => {
+                        // Auto-close search dropdown
+                        setSearchResults([]);
+                        setSearchQuery('');
+                        
                         const feature = e.features?.[0];
                         if (!feature) return;
 
@@ -1116,7 +1128,15 @@
                         map.getCanvas().style.cursor = '';
                     });
                 
-                                // Auto-update cache when map stops moving
+                    // Auto-close search when clicking empty map area
+                    map.on('click', (e) => {
+                        // Only clear if search is open
+                        if (searchQuery || searchResults.length > 0) {
+                            setSearchResults([]);
+                            setSearchQuery('');
+                        }
+                    });
+                                                // Auto-update cache when map stops moving
                                 map.on('idle', () => {
                                     if (searchServiceRef.current) {
                                         searchServiceRef.current.updateCache(map);

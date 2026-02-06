@@ -1107,9 +1107,16 @@
                         const feature = e.features?.[0];
                         if (!feature) return;
 
+                        // Validate geometry type
+                        const geometry = feature.geometry;
+                        if (geometry.type !== 'Point') {
+                            console.warn('[Listings] Expected Point geometry, got:', geometry.type);
+                            return;
+                        }
+
                         // Extract listing data from feature properties
                         const props = feature.properties;
-                        const coords = feature.geometry.coordinates;
+                        const coords = geometry.coordinates;
                         
                         const listingData = {
                             id: props.id,
@@ -1793,7 +1800,7 @@
                                                         <Icons.MapPin /> Tờ {selectedListing.so_to || 'N/A'} / Thửa {selectedListing.so_thua || 'N/A'}
                                                     </p>
                                                 </div>
-                                                <button onClick={() => { setSelectedListing(null); setView('info'); }} className="p-1 bg-slate-100 rounded-lg flex-shrink-0 mt-0.5">
+                                                <button onClick={() => { setSelectedListing(null); }} className="p-1 bg-slate-100 rounded-lg flex-shrink-0 mt-0.5">
                                                     <Icons.X className="w-4 h-4" />
                                                 </button>
                                             </div>

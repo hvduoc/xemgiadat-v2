@@ -402,7 +402,7 @@ const App = () => {
                         <MapPin className="w-4 h-4 text-red-500" /> Tờ {selectedListing.so_to || 'N/A'} / Thửa {selectedListing.so_thua || 'N/A'}
                       </p>
                     </div>
-                    <button onClick={() => { setSelectedListing(null); setView('info'); }} className="p-2 bg-slate-100 rounded-full">
+                    <button onClick={() => { setSelectedListing(null); }} className="p-2 bg-slate-100 rounded-full">
                       <X className="w-5 h-5 text-slate-400" />
                     </button>
                   </div>

@@ -85,7 +85,15 @@ window.MapController = class MapController {
             if (listingFeatures.length > 0) {
               const feature = listingFeatures[0];
               const props = feature.properties;
-              const coords = feature.geometry.coordinates;
+              const geometry = feature.geometry;
+              
+              // Validate geometry type
+              if (geometry.type !== 'Point') {
+                console.warn('[MapController] Expected Point geometry for listing, got:', geometry.type);
+                return;
+              }
+              
+              const coords = geometry.coordinates as [number, number];
               
               const listingData: ListingData = {
                 id: props.id,
@@ -116,9 +124,9 @@ window.MapController = class MapController {
             if (clusterFeatures.length > 0) {
               const cluster = clusterFeatures[0];
               const clusterId = cluster.properties?.cluster_id;
-              const source = this.map!.getSource('user-listings');
+              const source = this.map!.getSource('user-listings') as any;
               
-              if (source && clusterId !== undefined) {
+              if (source && clusterId !== undefined && typeof source.getClusterExpansionZoom === 'function') {
                 source.getClusterExpansionZoom(clusterId, (err: any, zoom: number) => {
                   if (err) return;
                   this.map!.easeTo({
@@ -428,8 +436,8 @@ window.MapController = class MapController {
           };
         }).filter(Boolean);
 
-        const source = this.map.getSource('user-listings');
-        if (source && source.setData) {
+        const source = this.map.getSource('user-listings') as any;
+        if (source && typeof source.setData === 'function') {
           source.setData({
             type: 'FeatureCollection',
             features

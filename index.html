@@ -703,13 +703,10 @@
             const [images, setImages] = useState([]);
             const [form, setForm] = useState({ 
                 price: '', 
-                phone: '', 
                 note: '',
                 transactionType: 'ban-dat',
                 priceUnit: 'VND',
-                isNegotiable: false,
-                contactName: authUser?.displayName || '',
-                contactEmail: authUser?.email || ''
+                isNegotiable: false
             });
             const [isSubmitting, setIsSubmitting] = useState(false);
                 const [authUser, setAuthUser] = useState(null);
@@ -747,20 +744,8 @@
                     }
                 });
 
-                map.addLayer({
-                    id: LISTINGS_LAYER_COUNT,
-                    type: 'symbol',
-                    source: LISTINGS_SOURCE_ID,
-                    filter: ['has', 'point_count'],
-                    layout: {
-                        'text-field': '{point_count_abbreviated}',
-                        'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
-                        'text-size': 12
-                    },
-                    paint: {
-                        'text-color': '#ffffff'
-                    }
-                });
+                // Skip text layer - OSM style has no glyphs
+                // Cluster count will be shown via CSS on hover or in popup
 
                 map.addLayer({
                     id: LISTINGS_LAYER_POINTS,
@@ -784,9 +769,33 @@
 
                     const { db } = await firebaseInit();
                     const snapshot = await db.collection('listings').limit(200).get();
+                    
+                    // Extract unique user IDs to fetch user profiles
+                    const uniqueUserIds = [...new Set(snapshot.docs.map(doc => doc.data().userId).filter(Boolean))];
+                    
+                    // Fetch all user profiles in parallel
+                    const userProfiles = {};
+                    if (uniqueUserIds.length > 0) {
+                        const userPromises = uniqueUserIds.map(uid => 
+                            db.collection('users').doc(uid).get()
+                                .then(userDoc => ({ uid, data: userDoc.exists ? userDoc.data() : null }))
+                                .catch(() => ({ uid, data: null }))
+                        );
+                        const results = await Promise.all(userPromises);
+                        results.forEach(({ uid, data }) => {
+                            if (data) userProfiles[uid] = data;
+                        });
+                    }
+
                     const features = snapshot.docs.map(doc => {
                         const data = doc.data() || {};
                         if (typeof data.lng !== 'number' || typeof data.lat !== 'number') return null;
+                        
+                        // Get user profile or fallback to old data
+                        const userProfile = data.userId ? userProfiles[data.userId] : null;
+                        const userName = userProfile?.displayName || data.userName || 'Người đăng';
+                        const phone = userProfile?.phone || data.phone || '';
+                        
                         return {
                             type: 'Feature',
                             geometry: {
@@ -795,6 +804,7 @@
                             },
                             properties: {
                                 id: doc.id,
+                                userId: data.userId || '',
                                 so_to: data.soHieuToBanDo || '',
                                 so_thua: data.soThuTuThua || '',
                                 dien_tich: data.dienTich || 0,
@@ -802,10 +812,10 @@
                                 priceUnit: data.priceUnit || 'VND',
                                 isNegotiable: data.isNegotiable || false,
                                 loaiGiaoDich: data.loaiGiaoDich || 'ban-dat',
-                                userName: data.userName || '',
-                                phone: data.phone || '',
+                                userName,
+                                phone,
                                 note: data.note || '',
-                                status: data.status || 'pending'
+                                status: data.status || 'approved'
                             }
                         };
                     }).filter(Boolean);
@@ -816,6 +826,7 @@
                             type: 'FeatureCollection',
                             features
                         });
+                        console.log(`[Listings] ✅ Loaded ${features.length} listings with user profiles`);
                     }
                 } catch (err) {
                     console.warn('[Listings] Load failed:', err);
@@ -1267,10 +1278,6 @@
                 if (!selected) return;
 
                 // Validate required fields
-                if (!form.phone || form.phone === '') {
-                    alert('❌ Vui lòng nhập số điện thoại liên hệ!');
-                    return;
-                }
                 if (!form.isNegotiable && (!form.price || form.price === '')) {
                     alert('❌ Vui lòng nhập giá bán hoặc chọn "Giá có thể thương lượng"!');
                     return;
@@ -1292,9 +1299,6 @@
 
                     const listing = {
                         userId: authUser.uid,
-                        userName: authUser.displayName || authUser.email || '',
-                        userEmail: authUser.email || '',
-                        phone: form.phone.trim(),
                         note,
                         lat: coords[1],
                         lng: coords[0],
@@ -1306,7 +1310,7 @@
                         priceUnit: form.priceUnit || 'VND',
                         isNegotiable: form.isNegotiable,
                         loaiGiaoDich: form.transactionType || 'ban-dat',
-                        status: 'pending',
+                        status: 'approved',
                         imageCount: images.length || 0,
                         createdAt: now,
                         updatedAt: now
@@ -1330,13 +1334,10 @@
                         setImages([]);
                         setForm({ 
                             price: '', 
-                            phone: '', 
                             note: '',
                             transactionType: 'ban-dat',
                             priceUnit: 'VND',
-                            isNegotiable: false,
-                            contactName: authUser?.displayName || '',
-                            contactEmail: authUser?.email || ''
+                            isNegotiable: false
                         });
                     }, 2000);
                 } catch (err) {
@@ -1687,13 +1688,11 @@
                                                     <span className="text-sm font-bold text-slate-700">💬 Giá có thể thương lượng</span>
                                                 </label>
 
-                                                {/* SĐT & Email */}
-                                                <div className="grid grid-cols-2 gap-3">
-                                                    <div className="relative">
-                                                        <div className="absolute left-3 top-1/2 -translate-y-1/2"><Icons.Phone /></div>
-                                                        <input type="tel" placeholder="SĐT..." className="w-full h-12 bg-white border border-slate-200 rounded-xl pl-10 pr-3 font-medium outline-none focus:border-blue-500" value={form.phone} onChange={e=>setForm({...form, phone:e.target.value})} />
-                                                    </div>
-                                                    <input type="email" placeholder="Email..." className="w-full h-12 bg-white border border-slate-200 rounded-xl px-3 font-medium outline-none focus:border-blue-500" value={form.contactEmail} onChange={e=>setForm({...form, contactEmail:e.target.value})} />
+                                                {/* Thông tin liên hệ từ profile */}
+                                                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs">
+                                                    <p className="font-bold text-slate-700 mb-1">📞 Thông tin liên hệ</p>
+                                                    <p className="text-slate-500">Được lấy từ hồ sơ của bạn: {authUser?.displayName} ({authUser?.email})</p>
+                                                    <p className="text-blue-600 mt-1">💡 Cập nhật SĐT tại phần Hồ sơ để hiển thị cho người xem</p>
                                                 </div>
 
                                                 {/* Mô tả */}
@@ -1718,9 +1717,9 @@
 
                                                 <button 
                                                     onClick={submitForm} 
-                                                    disabled={isSubmitting || !form.phone || (!form.isNegotiable && !form.price)}
+                                                    disabled={isSubmitting || (!form.isNegotiable && !form.price)}
                                                     className={`w-full h-14 rounded-2xl font-black text-base shadow-xl active:scale-95 transition-all
-                                                        ${isSubmitting || !form.phone || (!form.isNegotiable && !form.price) ? 'bg-slate-200 text-slate-400' : 'bg-green-600 text-white'}
+                                                        ${isSubmitting || (!form.isNegotiable && !form.price) ? 'bg-slate-200 text-slate-400' : 'bg-green-600 text-white'}
                                                     `}
                                                 >
                                                     {isSubmitting ? '⏳ Đang gửi...' : '✓ Hoàn tất đăng tin'}

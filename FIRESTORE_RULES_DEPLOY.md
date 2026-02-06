@@ -1,0 +1,87 @@
+# 🔥 Firestore Rules Deployment Guide
+
+## ⚠️ CRITICAL: Deploy Rules to Firebase Console
+
+**Vấn đề hiện tại**: Form đăng tin bị lỗi `permission-denied` vì Firestore rules chưa được cập nhật.
+
+---
+
+## 📋 Hướng Dẫn Deploy (5 phút)
+
+### Bước 1: Mở Firebase Console
+1. Truy cập: https://console.firebase.google.com/
+2. Chọn project: **xemgiadat-dfe15**
+3. Menu bên trái → **Firestore Database**
+4. Tab **Rules** (ở top)
+
+### Bước 2: Copy Rules
+Mở file [`firestore.rules`](./firestore.rules) trong repo này, copy toàn bộ nội dung.
+
+### Bước 3: Paste vào Firebase Console
+1. Xóa hết rules cũ trong editor
+2. Paste nội dung từ `firestore.rules`
+3. Click **Publish** (button màu xanh)
+4. Đợi ~30 giây để rules được áp dụng
+
+---
+
+## ✅ Kiểm Tra Sau Khi Deploy
+
+1. **Test form đăng tin**:
+   - Đăng nhập
+   - Chọn thửa
+   - Click "Rao" → điền form → submit
+   - ✅ Thành công → thấy "Đã ghi nhận!"
+   - ❌ Thất bại → check console log
+
+2. **Test old data loading**:
+   - Zoom vào Đà Nẵng
+   - ✅ Thấy pins màu cam (old listings)
+   - ✅ Click vào → popup hiển thị thông tin
+
+---
+
+## 📊 Rules Summary
+
+| Collection | Read | Create | Update/Delete |
+|-----------|------|--------|---------------|
+| `users` | Public | Own only | Own only |
+| `listings` | Public | Own + auto-approve | Own only |
+| `portfolios` | Public | Own only | Own only |
+| `feedback` | Auth only | Auth only | - |
+
+**Key Changes từ v1**:
+- ✅ Listings auto-approve (không cần admin duyệt)
+- ✅ Users collection public read (để fetch contact info)
+- ✅ Simplified validation (chỉ check userId match)
+
+---
+
+## 🔧 Nếu Vẫn Lỗi
+
+### Lỗi: "Missing or insufficient permissions"
+**Nguyên nhân**: Rules chưa được publish hoặc deploy sai project
+
+**Fix**:
+1. Kiểm tra lại project trong Firebase Console (phải là `xemgiadat-dfe15`)
+2. Đảm bảo đã click **Publish** (không phải Save draft)
+3. Đợi 1-2 phút cho rules propagate
+4. Hard refresh app (Ctrl+Shift+R)
+
+### Lỗi: "status must be approved"
+**Nguyên nhân**: Code đang gửi `status: 'pending'`
+
+**Fix**: Đã sửa trong commit này → `status: 'approved'`
+
+---
+
+## 📝 Notes
+
+- Rules này đơn giản hơn v1 (không cần admin approval)
+- Có thể thêm admin approval sau nếu cần
+- Public read cho users để hiển thị contact info trong listings
+- Auto-approve listings để giảm friction cho MVP
+
+---
+
+**Deploy xong → test ngay → báo kết quả!** 🚀

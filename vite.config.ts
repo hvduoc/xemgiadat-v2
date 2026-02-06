@@ -1,8 +1,8 @@
-const path = require('path');
-const { defineConfig, loadEnv } = require('vite');
-const react = require('@vitejs/plugin-react');
+import path from 'path';
+import { defineConfig, loadEnv } from 'vite';
+import react from '@vitejs/plugin-react';
 
-const config = defineConfig(({ mode }) => {
+export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
     return {
       server: {
@@ -16,10 +16,8 @@ const config = defineConfig(({ mode }) => {
       },
       resolve: {
         alias: {
-          '@': path.resolve(__dirname, '.'),
+          '@': path.resolve(import.meta.dirname || __dirname, '.'),
         }
       }
     };
 });
-
-module.exports = config;

@@ -701,7 +701,16 @@
                 const [searchResults, setSearchResults] = useState([]);
                 const [isSearching, setIsSearching] = useState(false);
             const [images, setImages] = useState([]);
-            const [form, setForm] = useState({ price: '', phone: '', note: '' });
+            const [form, setForm] = useState({ 
+                price: '', 
+                phone: '', 
+                note: '',
+                transactionType: 'ban-dat',
+                priceUnit: 'VND',
+                isNegotiable: false,
+                contactName: authUser?.displayName || '',
+                contactEmail: authUser?.email || ''
+            });
             const [isSubmitting, setIsSubmitting] = useState(false);
                 const [authUser, setAuthUser] = useState(null);
                 const [showLogin, setShowLogin] = useState(false);
@@ -790,7 +799,12 @@
                                 so_thua: data.soThuTuThua || '',
                                 dien_tich: data.dienTich || 0,
                                 priceValue: data.priceValue || 0,
+                                priceUnit: data.priceUnit || 'VND',
+                                isNegotiable: data.isNegotiable || false,
+                                loaiGiaoDich: data.loaiGiaoDich || 'ban-dat',
                                 userName: data.userName || '',
+                                phone: data.phone || '',
+                                note: data.note || '',
                                 status: data.status || 'pending'
                             }
                         };
@@ -813,17 +827,32 @@
                 const soThua = props.so_thua || 'N/A';
                 const dienTich = props.dien_tich || 0;
                 const price = props.priceValue || 0;
-                const userName = props.userName || 'Nguoi dang';
-
+                const priceUnit = props.priceUnit || 'VND';
+                const userName = props.userName || 'Người đăng';
+                const isNegotiable = props.isNegotiable ? '💬 Thương lượng' : '';
+                const loaiGiaoDich = props.loaiGiaoDich || 'ban-dat';
+                
+                const transactionLabel = loaiGiaoDich === 'ban-dat' ? '🏷️ Bán' : 
+                                        loaiGiaoDich === 'ban-nha' ? '🏠 Bán nhà' :
+                                        loaiGiaoDich === 'cho-thue' ? '🔑 Cho thuê' : '✓ ' + loaiGiaoDich;
+                
                 const priceText = price > 0
-                    ? new Intl.NumberFormat('vi-VN').format(price) + ' VND'
-                    : 'Chua ro';
+                    ? new Intl.NumberFormat('vi-VN').format(price) + ' ' + priceUnit
+                    : isNegotiable;
 
                 return `
-                    <div style="min-width:180px">
-                        <div style="font-weight:800;color:#0f172a">Thua ${soThua} / To ${soTo}</div>
-                        <div style="font-size:12px;color:#64748b;margin-top:4px">${dienTich} m2 · ${priceText}</div>
-                        <div style="font-size:11px;color:#94a3b8;margin-top:6px">Dang boi ${userName}</div>
+                    <div style="min-width:200px;font-family:sans-serif">
+                        <div style="font-weight:800;color:#0f172a;font-size:14px;margin-bottom:8px">
+                            Thửa ${soThua} / Tờ ${soTo}
+                        </div>
+                        <div style="display:grid;gap:6px;font-size:12px;margin-bottom:8px">
+                            <div style="color:#475569">📐 ${dienTich} m²</div>
+                            <div style="color:#d97706;font-weight:600">${transactionLabel}</div>
+                            <div style="color:#059669;font-weight:600">💰 ${priceText}</div>
+                        </div>
+                        <div style="border-top:1px solid #e2e8f0;padding-top:6px;font-size:11px;color:#64748b">
+                            📍 Đăng bởi ${userName}
+                        </div>
                     </div>
                 `;
             };
@@ -1237,21 +1266,35 @@
 
                 if (!selected) return;
 
+                // Validate required fields
+                if (!form.phone || form.phone === '') {
+                    alert('❌ Vui lòng nhập số điện thoại liên hệ!');
+                    return;
+                }
+                if (!form.isNegotiable && (!form.price || form.price === '')) {
+                    alert('❌ Vui lòng nhập giá bán hoặc chọn "Giá có thể thương lượng"!');
+                    return;
+                }
+
                 setIsSubmitting(true);
                 try {
+                    console.log('[Listings] Starting submission with authUser:', authUser.uid);
                     const firebaseInit = window.__initFirebase;
                     if (!firebaseInit) throw new Error('Firebase not ready');
 
                     const { db } = await firebaseInit();
+                    console.log('[Listings] Firebase initialized, db:', !!db);
+                    
                     const now = window.firebase.firestore.FieldValue.serverTimestamp();
                     const coords = selected.coordinates || [108.2022, 16.0544];
-                    const priceValue = Number(form.price || 0);
+                    const priceValue = form.isNegotiable ? 0 : Number(form.price || 0);
                     const note = (form.note || '').trim().slice(0, 500);
 
                     const listing = {
                         userId: authUser.uid,
                         userName: authUser.displayName || authUser.email || '',
-                        phone: form.phone || '',
+                        userEmail: authUser.email || '',
+                        phone: form.phone.trim(),
                         note,
                         lat: coords[1],
                         lng: coords[0],
@@ -1260,18 +1303,24 @@
                         soHieuToBanDo: selected.so_to || '',
                         dienTich: selected.dien_tich || 0,
                         priceValue,
-                        priceUnit: 'VND',
+                        priceUnit: form.priceUnit || 'VND',
+                        isNegotiable: form.isNegotiable,
+                        loaiGiaoDich: form.transactionType || 'ban-dat',
                         status: 'pending',
                         imageCount: images.length || 0,
                         createdAt: now,
                         updatedAt: now
                     };
 
-                    await db.collection('listings').add(listing);
+                    console.log('[Listings] Submitting listing data:', listing);
+                    const docRef = await db.collection('listings').add(listing);
+                    console.log('[Listings] ✅ Submitted successfully with ID:', docRef.id);
 
                     const map = window.MapController?.getMap?.();
                     if (map) {
+                        console.log('[Listings] Refreshing map listings...');
                         await refreshListings(map);
+                        console.log('[Listings] ✅ Map listings refreshed');
                     }
 
                     setView('success');
@@ -1279,11 +1328,34 @@
                         setSelected(null);
                         setView('info');
                         setImages([]);
-                        setForm({ price: '', phone: '', note: '' });
+                        setForm({ 
+                            price: '', 
+                            phone: '', 
+                            note: '',
+                            transactionType: 'ban-dat',
+                            priceUnit: 'VND',
+                            isNegotiable: false,
+                            contactName: authUser?.displayName || '',
+                            contactEmail: authUser?.email || ''
+                        });
                     }, 2000);
                 } catch (err) {
-                    console.error('[Listings] Submit failed:', err);
-                    alert('Gửi tin thất bại. Vui lòng thử lại.');
+                    console.error('[Listings] Submit failed with error:', {
+                        message: err.message,
+                        code: err.code,
+                        fullError: err
+                    });
+                    
+                    let errorMsg = 'Gửi tin thất bại. Vui lòng thử lại.';
+                    if (err.code === 'permission-denied') {
+                        errorMsg = '❌ Lỗi quyền: Kiểm tra Firestore rules. Bạn đã đăng nhập?';
+                    } else if (err.message.includes('Firebase not ready')) {
+                        errorMsg = '❌ Firebase chưa sẵn sàng. Thử lại sau.';
+                    } else if (err.message) {
+                        errorMsg = `❌ Lỗi: ${err.message}`;
+                    }
+                    
+                    alert(errorMsg);
                 } finally {
                     setIsSubmitting(false);
                 }
@@ -1584,40 +1656,77 @@
                                                     <div><p className="text-[9px] text-slate-400 font-bold uppercase">Diện tích</p><p className="font-black text-slate-700">{selected.dien_tich}m²</p></div>
                                                 </div>
 
-                                                <div className="grid grid-cols-2 gap-3">
-                                                    <div className="relative">
-                                                        <div className="absolute left-4 top-1/2 -translate-y-1/2"><Icons.Banknote /></div>
-                                                        <input type="number" placeholder="Giá bán..." className="w-full h-14 bg-white border border-slate-200 rounded-xl pl-12 pr-4 font-bold outline-none focus:border-blue-500" value={form.price} onChange={e=>setForm({...form, price:e.target.value})} />
-                                                    </div>
-                                                    <div className="relative">
-                                                        <div className="absolute left-4 top-1/2 -translate-y-1/2"><Icons.Phone /></div>
-                                                        <input placeholder="SĐT liên hệ..." className="w-full h-14 bg-white border border-slate-200 rounded-xl pl-12 pr-4 font-bold outline-none focus:border-blue-500" value={form.phone} onChange={e=>setForm({...form, phone:e.target.value})} />
-                                                    </div>
+                                                {/* Loại giao dịch */}
+                                                <div>
+                                                    <label className="block text-xs font-bold text-slate-600 uppercase mb-2">Loại giao dịch</label>
+                                                    <select value={form.transactionType} onChange={e=>setForm({...form, transactionType:e.target.value})} className="w-full h-12 bg-white border border-slate-200 rounded-xl px-4 font-medium outline-none focus:border-blue-500">
+                                                        <option value="ban-dat">🏷️ Bán đất</option>
+                                                        <option value="ban-nha">🏠 Bán nhà/nhà phố</option>
+                                                        <option value="cho-thue">🔑 Cho thuê</option>
+                                                        <option value="tim-mua">🔍 Tìm mua</option>
+                                                    </select>
                                                 </div>
 
-                                                <textarea placeholder="Ghi chú thêm (hướng đất, pháp lý...)" className="w-full h-24 bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:border-blue-500 resize-none" value={form.note} onChange={e=>setForm({...form, note:e.target.value})} />
+                                                {/* Giá & Đơn vị */}
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <div className="relative">
+                                                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">GIÁ</div>
+                                                        <input type="number" placeholder="Nhập giá..." className="w-full h-12 bg-white border border-slate-200 rounded-xl pl-10 pr-3 font-bold text-sm outline-none focus:border-blue-500" value={form.price} onChange={e=>setForm({...form, price:e.target.value})} />
+                                                    </div>
+                                                    <select value={form.priceUnit} onChange={e=>setForm({...form, priceUnit:e.target.value})} className="h-12 bg-white border border-slate-200 rounded-xl px-2 font-bold text-xs outline-none focus:border-blue-500">
+                                                        <option value="VND">VND</option>
+                                                        <option value="VND/m²">VND/m²</option>
+                                                        <option value="triệu/m²">Triệu/m²</option>
+                                                        <option value="tỷ">Tỷ</option>
+                                                    </select>
+                                                </div>
 
-                                                <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-                                                    <label className="w-20 h-20 shrink-0 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl flex items-center justify-center cursor-pointer hover:bg-blue-50">
-                                                        <Icons.Camera />
-                                                        <input type="file" multiple className="hidden" onChange={handleImageUpload} accept="image/*" />
-                                                    </label>
-                                                    {images.map((img, i) => (
-                                                        <div key={i} className="relative w-20 h-20 shrink-0">
-                                                            <img src={img} className="w-full h-full object-cover rounded-2xl border" />
-                                                            <button onClick={()=>setImages(images.filter((_,idx)=>idx!==i))} className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full shadow-lg"><Icons.X /></button>
+                                                {/* Thương lượng */}
+                                                <label className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-xl cursor-pointer">
+                                                    <input type="checkbox" checked={form.isNegotiable} onChange={e=>setForm({...form, isNegotiable:e.target.checked})} className="w-5 h-5 accent-blue-600" />
+                                                    <span className="text-sm font-bold text-slate-700">💬 Giá có thể thương lượng</span>
+                                                </label>
+
+                                                {/* SĐT & Email */}
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <div className="relative">
+                                                        <div className="absolute left-3 top-1/2 -translate-y-1/2"><Icons.Phone /></div>
+                                                        <input type="tel" placeholder="SĐT..." className="w-full h-12 bg-white border border-slate-200 rounded-xl pl-10 pr-3 font-medium outline-none focus:border-blue-500" value={form.phone} onChange={e=>setForm({...form, phone:e.target.value})} />
+                                                    </div>
+                                                    <input type="email" placeholder="Email..." className="w-full h-12 bg-white border border-slate-200 rounded-xl px-3 font-medium outline-none focus:border-blue-500" value={form.contactEmail} onChange={e=>setForm({...form, contactEmail:e.target.value})} />
+                                                </div>
+
+                                                {/* Mô tả */}
+                                                <textarea placeholder="Ghi chú thêm (hướng đất, pháp lý, tiềm năng...)" className="w-full h-20 bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-medium outline-none focus:border-blue-500 resize-none" value={form.note} onChange={e=>setForm({...form, note:e.target.value})} />
+
+                                                {/* Ảnh */}
+                                                <div>
+                                                    <label className="block text-xs font-bold text-slate-600 uppercase mb-2">Hình ảnh (tùy chọn)</label>
+                                                    <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                                                        <label className="w-20 h-20 shrink-0 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl flex items-center justify-center cursor-pointer hover:bg-blue-50 transition">
+                                                            <Icons.Camera />
+                                                            <input type="file" multiple className="hidden" onChange={handleImageUpload} accept="image/*" />
+                                                        </label>
+                                                        {images.map((img, i) => (
+                                                            <div key={i} className="relative w-20 h-20 shrink-0">
+                                                                <img src={img} className="w-full h-full object-cover rounded-2xl border" />
+                                                                <button onClick={()=>setImages(images.filter((_,idx)=>idx!==i))} className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full shadow-lg"><Icons.X /></button>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
                                                         </div>
                                                     ))}
                                                 </div>
 
                                                 <button 
                                                     onClick={submitForm} 
-                                                    disabled={isSubmitting || !form.price || !form.phone}
-                                                    className={`w-full h-16 rounded-2xl font-black text-lg shadow-xl active:scale-95 transition-all
-                                                        ${isSubmitting || !form.price || !form.phone ? 'bg-slate-200 text-slate-400' : 'bg-blue-600 text-white'}
+                                                    disabled={isSubmitting || !form.phone || (!form.isNegotiable && !form.price)}
+                                                    className={`w-full h-14 rounded-2xl font-black text-base shadow-xl active:scale-95 transition-all
+                                                        ${isSubmitting || !form.phone || (!form.isNegotiable && !form.price) ? 'bg-slate-200 text-slate-400' : 'bg-green-600 text-white'}
                                                     `}
                                                 >
-                                                    {isSubmitting ? 'Đang gửi...' : 'Gửi thông tin rao bán'}
+                                                    {isSubmitting ? '⏳ Đang gửi...' : '✓ Hoàn tất đăng tin'}
                                                 </button>
                                             </div>
                                         </div>

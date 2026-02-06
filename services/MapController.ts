@@ -34,7 +34,7 @@ window.MapController = class MapController {
     return MapController.instance ? MapController.instance.getMap() : null;
   }
 
-  init(container: HTMLDivElement, initialView: any, onParcelClick: (data: any) => void) {
+  init(container: HTMLDivElement, initialView: any, onParcelClick: (data: any) => void, onListingClick?: (data: ListingData) => void) {
     try {
       const maplibregl = (window as any).maplibregl;
       this.map = new maplibregl.Map({
@@ -68,10 +68,97 @@ window.MapController = class MapController {
         const StyleEngine = (window as any).StyleEngine;
         StyleEngine.applyLODStyle(this.map!);
         
-        this.map!.on('click', StyleEngine.LAYER_FILL, (e) => {
-          this.performSelection(e.point, e.lngLat, onParcelClick);
+        // Add listing layers
+        this.addListingLayers();
+        
+        // Initialize listings from Firebase if available
+        this.refreshListings();
+        
+        // Handle map clicks with priority: listings first, then parcels
+        this.map!.on('click', (e) => {
+          // Check for listing clicks first (higher priority)
+          if (onListingClick) {
+            const listingFeatures = this.map!.queryRenderedFeatures(e.point, {
+              layers: ['user-listings-points']
+            });
+            
+            if (listingFeatures.length > 0) {
+              const feature = listingFeatures[0];
+              const props = feature.properties;
+              const coords = feature.geometry.coordinates;
+              
+              const listingData: ListingData = {
+                id: props.id,
+                userId: props.userId || '',
+                so_to: props.so_to || '',
+                so_thua: props.so_thua || '',
+                dien_tich: props.dien_tich || 0,
+                priceValue: props.priceValue || 0,
+                priceUnit: props.priceUnit || 'VND',
+                isNegotiable: props.isNegotiable || false,
+                loaiGiaoDich: props.loaiGiaoDich || 'ban-dat',
+                userName: props.userName || 'Người đăng',
+                phone: props.phone || '',
+                note: props.note || '',
+                status: props.status || 'approved',
+                coordinates: [coords[0], coords[1]]
+              };
+              
+              onListingClick(listingData);
+              return; // Don't process parcel click
+            }
+            
+            // Check for listing clusters
+            const clusterFeatures = this.map!.queryRenderedFeatures(e.point, {
+              layers: ['user-listings-clusters']
+            });
+            
+            if (clusterFeatures.length > 0) {
+              const cluster = clusterFeatures[0];
+              const clusterId = cluster.properties?.cluster_id;
+              const source = this.map!.getSource('user-listings');
+              
+              if (source && clusterId !== undefined) {
+                source.getClusterExpansionZoom(clusterId, (err: any, zoom: number) => {
+                  if (err) return;
+                  this.map!.easeTo({
+                    center: cluster.geometry.coordinates,
+                    zoom
+                  });
+                });
+              }
+              return; // Don't process parcel click
+            }
+          }
+          
+          // If no listing was clicked, check for parcel click
+          const parcelFeatures = this.map!.queryRenderedFeatures(e.point, {
+            layers: [StyleEngine.LAYER_FILL]
+          });
+          
+          if (parcelFeatures.length > 0) {
+            this.performSelection(e.point, e.lngLat, onParcelClick);
+          }
         });
 
+        // Cursor handling for listings
+        this.map!.on('mouseenter', 'user-listings-points', () => {
+          this.map!.getCanvas().style.cursor = 'pointer';
+        });
+
+        this.map!.on('mouseleave', 'user-listings-points', () => {
+          this.map!.getCanvas().style.cursor = '';
+        });
+
+        this.map!.on('mouseenter', 'user-listings-clusters', () => {
+          this.map!.getCanvas().style.cursor = 'pointer';
+        });
+
+        this.map!.on('mouseleave', 'user-listings-clusters', () => {
+          this.map!.getCanvas().style.cursor = '';
+        });
+
+        // Cursor handling for parcels
         this.map!.on('mouseenter', StyleEngine.LAYER_FILL, () => {
           this.map!.getCanvas().style.cursor = 'pointer';
         });
@@ -202,5 +289,155 @@ window.MapController = class MapController {
      */
     getMap() {
       return this.map;
+    }
+
+    /**
+     * Add listing layers to the map
+     */
+    private addListingLayers() {
+      if (!this.map || this.map.getSource('user-listings')) return;
+
+      // Add source for listings with clustering
+      this.map.addSource('user-listings', {
+        type: 'geojson',
+        data: {
+          type: 'FeatureCollection',
+          features: []
+        },
+        cluster: true,
+        clusterMaxZoom: 14,
+        clusterRadius: 50
+      });
+
+      // Add cluster layer
+      this.map.addLayer({
+        id: 'user-listings-clusters',
+        type: 'circle',
+        source: 'user-listings',
+        filter: ['has', 'point_count'],
+        paint: {
+          'circle-color': [
+            'step',
+            ['get', 'point_count'],
+            '#51bbd6',
+            5,
+            '#f1f075',
+            10,
+            '#f28cb1'
+          ],
+          'circle-radius': [
+            'step',
+            ['get', 'point_count'],
+            20,
+            5,
+            30,
+            10,
+            40
+          ]
+        }
+      });
+
+      // Add cluster count layer
+      this.map.addLayer({
+        id: 'user-listings-cluster-count',
+        type: 'symbol',
+        source: 'user-listings',
+        filter: ['has', 'point_count'],
+        layout: {
+          'text-field': '{point_count_abbreviated}',
+          'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+          'text-size': 12
+        }
+      });
+
+      // Add individual points layer
+      this.map.addLayer({
+        id: 'user-listings-points',
+        type: 'circle',
+        source: 'user-listings',
+        filter: ['!', ['has', 'point_count']],
+        paint: {
+          'circle-color': '#ff4444',
+          'circle-radius': 8,
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#ffffff'
+        }
+      });
+    }
+
+    /**
+     * Refresh listings from Firebase
+     */
+    async refreshListings() {
+      if (!this.map) return;
+
+      try {
+        const firebaseInit = (window as any).__initFirebase;
+        if (!firebaseInit) return;
+
+        const { db } = await firebaseInit();
+        const snapshot = await db.collection('listings').limit(200).get();
+        
+        // Extract unique user IDs to fetch user profiles
+        const uniqueUserIds = [...new Set(snapshot.docs.map((doc: any) => doc.data().userId).filter(Boolean))];
+        
+        // Fetch all user profiles in parallel
+        const userProfiles: any = {};
+        if (uniqueUserIds.length > 0) {
+          const userPromises = uniqueUserIds.map((uid: string) => 
+            db.collection('users').doc(uid).get()
+              .then((userDoc: any) => ({ uid, data: userDoc.exists ? userDoc.data() : null }))
+              .catch(() => ({ uid, data: null }))
+          );
+          const results = await Promise.all(userPromises);
+          results.forEach(({ uid, data }: any) => {
+            if (data) userProfiles[uid] = data;
+          });
+        }
+
+        const features = snapshot.docs.map((doc: any) => {
+          const data = doc.data() || {};
+          if (typeof data.lng !== 'number' || typeof data.lat !== 'number') return null;
+          
+          // Get user profile or fallback to old data
+          const userProfile = data.userId ? userProfiles[data.userId] : null;
+          const userName = userProfile?.displayName || data.userName || 'Người đăng';
+          const phone = userProfile?.phone || data.phone || '';
+          
+          return {
+            type: 'Feature',
+            geometry: {
+              type: 'Point',
+              coordinates: [data.lng, data.lat]
+            },
+            properties: {
+              id: doc.id,
+              userId: data.userId || '',
+              so_to: data.soHieuToBanDo || '',
+              so_thua: data.soThuTuThua || '',
+              dien_tich: data.dienTich || 0,
+              priceValue: data.priceValue || 0,
+              priceUnit: data.priceUnit || 'VND',
+              isNegotiable: data.isNegotiable || false,
+              loaiGiaoDich: data.loaiGiaoDich || 'ban-dat',
+              userName,
+              phone,
+              note: data.note || '',
+              status: data.status || 'approved'
+            }
+          };
+        }).filter(Boolean);
+
+        const source = this.map.getSource('user-listings');
+        if (source && source.setData) {
+          source.setData({
+            type: 'FeatureCollection',
+            features
+          });
+          console.log(`[MapController] ✅ Loaded ${features.length} listings`);
+        }
+      } catch (err) {
+        console.warn('[MapController] Failed to load listings:', err);
+      }
     }
 };

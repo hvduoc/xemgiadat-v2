@@ -19,4 +19,21 @@ declare global {
     parcel: ParcelData;
     relevance: number;
   }
+
+  interface ListingData {
+    id: string;
+    userId: string;
+    so_to: string;
+    so_thua: string;
+    dien_tich: number;
+    priceValue: number;
+    priceUnit: string;
+    isNegotiable: boolean;
+    loaiGiaoDich: string;
+    userName: string;
+    phone: string;
+    note: string;
+    status: string;
+    coordinates: [number, number];
+  }
 }

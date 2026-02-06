@@ -30,7 +30,8 @@ const App = () => {
     const [searchService, setSearchService] = useState<any>(null);
   
   const [selectedParcel, setSelectedParcel] = useState(null as ParcelData | null);
-  const [view, setView] = useState('info' as 'info' | 'listing' | 'success');
+  const [selectedListing, setSelectedListing] = useState(null as ListingData | null);
+  const [view, setView] = useState('info' as 'info' | 'listing' | 'success' | 'listing-detail');
   const [panelState, setPanelState] = useState('expanded' as 'peek' | 'expanded');
   
     const [searchQuery, setSearchQuery] = useState('');
@@ -52,26 +53,47 @@ const App = () => {
       const SearchService = (window as any).SearchService;
     const initial = LinkService.getParams();
     
-    controller.init(mapContainerRef.current, initial, (data: any) => {
-      const parcel: ParcelData = {
-        id: data.id || data.OBJECTID,
-        so_thua: data['Số thửa'] || data.so_thua || 'N/A',
-        so_to: data['Số hiệu tờ bản đồ'] || data.so_to || 'N/A',
-        dien_tich: Number(data['Diện tích'] || data.dien_tich || 0),
-        muc_dich: data['Ký hiệu mục đích sử dụng'] || data.muc_dich || 'N/A',
-        ma_xa: data['Mã xã'] || data.ma_xa || 'N/A',
-        dia_chi: data['Địa chỉ'] !== 'Null' ? data['Địa chỉ'] : 'TP. Đà Nẵng',
-        coordinates: data.coordinates,
-      };
-      
-      parcel.gia_uoc_tinh = PriceService.calculateTotalValue(parcel);
-      setSelectedParcel(parcel);
-      setView('info');
-      setPanelState('expanded');
-      
-      // Reset form khi chọn thửa mới
-      setListingForm({ price: '', phone: '', note: '', images: [] });
-    });
+    controller.init(
+      mapContainerRef.current, 
+      initial, 
+      (data: any) => {
+        // Parcel click handler
+        const parcel: ParcelData = {
+          id: data.id || data.OBJECTID,
+          so_thua: data['Số thửa'] || data.so_thua || 'N/A',
+          so_to: data['Số hiệu tờ bản đồ'] || data.so_to || 'N/A',
+          dien_tich: Number(data['Diện tích'] || data.dien_tich || 0),
+          muc_dich: data['Ký hiệu mục đích sử dụng'] || data.muc_dich || 'N/A',
+          ma_xa: data['Mã xã'] || data.ma_xa || 'N/A',
+          dia_chi: data['Địa chỉ'] !== 'Null' ? data['Địa chỉ'] : 'TP. Đà Nẵng',
+          coordinates: data.coordinates,
+        };
+        
+        parcel.gia_uoc_tinh = PriceService.calculateTotalValue(parcel);
+        setSelectedParcel(parcel);
+        setSelectedListing(null);
+        setView('info');
+        setPanelState('expanded');
+        
+        // Reset form khi chọn thửa mới
+        setListingForm({ price: '', phone: '', note: '', images: [] });
+        
+        // Close search dropdown
+        setSearchQuery('');
+        setSearchResults([]);
+      },
+      (listingData: ListingData) => {
+        // Listing click handler
+        setSelectedListing(listingData);
+        setSelectedParcel(null);
+        setView('listing-detail');
+        setPanelState('expanded');
+        
+        // Close search dropdown
+        setSearchQuery('');
+        setSearchResults([]);
+      }
+    );
     
       // Khởi tạo SearchService sau khi map đã load
       const service = new SearchService(controller);
@@ -203,7 +225,7 @@ const App = () => {
 
       <div ref={mapContainerRef} className="w-full h-full" />
 
-      {selectedParcel && (
+      {(selectedParcel || selectedListing) && (
         <div className={`absolute bottom-0 inset-x-0 z-[100] transition-all duration-300 ease-out transform
           ${panelState === 'expanded' ? 'translate-y-0' : 'translate-y-[calc(100%-80px)]'}
         `}>
@@ -217,7 +239,7 @@ const App = () => {
             </div>
 
             <div className="px-6 pb-8 overflow-y-auto max-h-[85vh] scrollbar-hide">
-              {view === 'info' && (
+              {view === 'info' && selectedParcel && (
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
                   <div className="flex justify-between items-start mb-6">
                     <div>
@@ -273,7 +295,7 @@ const App = () => {
                 </div>
               )}
 
-              {view === 'listing' && (
+              {view === 'listing' && selectedParcel && (
                 <div className="animate-in slide-in-from-right-8 duration-300">
                   <div className="flex items-center gap-4 mb-6">
                     <button onClick={() => setView('info')} className="p-2 bg-slate-100 rounded-full">
@@ -363,6 +385,98 @@ const App = () => {
                     >
                       {isSubmitting ? 'Đang đăng tin...' : <><Send className="w-5 h-5" /> Hoàn tất đăng tin</>}
                     </button>
+                  </div>
+                </div>
+              )}
+
+              {view === 'listing-detail' && selectedListing && (
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
+                  <div className="flex justify-between items-start mb-6">
+                    <div>
+                      <h2 className="text-2xl font-black text-slate-900 leading-tight">
+                        {selectedListing.loaiGiaoDich === 'ban-dat' ? '🏷️ Bán đất' : 
+                         selectedListing.loaiGiaoDich === 'ban-nha' ? '🏠 Bán nhà' :
+                         selectedListing.loaiGiaoDich === 'cho-thue' ? '🔑 Cho thuê' : 'Tin đăng'}
+                      </h2>
+                      <p className="text-sm text-slate-500 font-medium flex items-center gap-1 mt-1">
+                        <MapPin className="w-4 h-4 text-red-500" /> Tờ {selectedListing.so_to || 'N/A'} / Thửa {selectedListing.so_thua || 'N/A'}
+                      </p>
+                    </div>
+                    <button onClick={() => { setSelectedListing(null); setView('info'); }} className="p-2 bg-slate-100 rounded-full">
+                      <X className="w-5 h-5 text-slate-400" />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 mb-6">
+                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Diện tích</p>
+                      <p className="text-lg font-black text-slate-800">{selectedListing.dien_tich} m²</p>
+                    </div>
+                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Giá bán</p>
+                      <p className="text-lg font-black text-slate-800">
+                        {selectedListing.isNegotiable ? 
+                          'Thương lượng' : 
+                          selectedListing.priceValue > 0 ? 
+                            ((window as any).PriceService).formatCurrency(selectedListing.priceValue) : 
+                            'Liên hệ'
+                        }
+                      </p>
+                    </div>
+                  </div>
+
+                  {selectedListing.note && (
+                    <div className="bg-blue-50 border border-blue-100 p-5 rounded-2xl mb-6">
+                      <div className="flex items-center gap-2 mb-2">
+                        <FileText className="w-4 h-4 text-blue-500" />
+                        <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">Ghi chú</span>
+                      </div>
+                      <p className="text-sm text-slate-700 leading-relaxed">{selectedListing.note}</p>
+                    </div>
+                  )}
+
+                  <div className="bg-slate-50 border border-slate-200 p-5 rounded-2xl mb-6">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Thông tin liên hệ</span>
+                    </div>
+                    <p className="font-bold text-slate-900 mb-1">{selectedListing.userName}</p>
+                    {selectedListing.phone && (
+                      <a href={`tel:${selectedListing.phone}`} className="text-blue-600 font-semibold flex items-center gap-2 hover:underline">
+                        <Phone className="w-4 h-4" />
+                        {selectedListing.phone}
+                      </a>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col gap-3">
+                    {selectedListing.phone && (
+                      <a 
+                        href={`tel:${selectedListing.phone}`}
+                        className="w-full h-16 bg-green-600 text-white rounded-2xl font-black text-lg flex items-center justify-center gap-3 shadow-xl active:scale-95 transition-all"
+                      >
+                        <Phone className="w-6 h-6" /> Gọi điện ngay
+                      </a>
+                    )}
+                    <div className="flex gap-3">
+                      <button className="flex-1 bg-slate-100 text-slate-600 h-14 rounded-2xl font-bold text-sm flex items-center justify-center gap-2">
+                        <Share2 className="w-4 h-4" /> Chia sẻ
+                      </button>
+                      <button 
+                        onClick={() => {
+                          if (selectedListing.coordinates) {
+                            (window as any).MapController.flyToCoordinates(
+                              selectedListing.coordinates[0], 
+                              selectedListing.coordinates[1], 
+                              18
+                            );
+                          }
+                        }}
+                        className="flex-1 bg-slate-100 text-slate-600 h-14 rounded-2xl font-bold text-sm flex items-center justify-center gap-2"
+                      >
+                        <MapPin className="w-4 h-4" /> Xem vị trí
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}

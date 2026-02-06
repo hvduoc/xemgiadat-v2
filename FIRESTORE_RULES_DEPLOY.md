@@ -4,6 +4,8 @@
 
 **Vấn đề hiện tại**: Form đăng tin bị lỗi `permission-denied` vì Firestore rules chưa được cập nhật.
 
+**Security Update**: Rules giờ dùng custom claims thay vì hardcoded admin UID. Chi tiết xem [ADMIN_CUSTOM_CLAIMS_SETUP.md](./ADMIN_CUSTOM_CLAIMS_SETUP.md)
+
 ---
 
 ## 📋 Hướng Dẫn Deploy (5 phút)
@@ -54,7 +56,9 @@ Mở file [`firestore.rules`](./firestore.rules) trong repo này, copy toàn b�
 | **Default** | Deny | Deny | Deny |
 
 **Key Features**:
-- ✅ Admin UID: `FEpPWWT1EaTWQ9FOqBxWN5FeEJk1` (Ba Được) với special permissions
+- ✅ Admin UID: `FEpPWWT1EaTWQ9FOqBxWN5FeEJk1` (Ba Được) - manage via custom claims (see setup guide)
+- ✅ **New**: Uses custom claims (`admin: true`) instead of hardcoded UID (more secure)
+- ✅ **Fallback**: Admins collection for dynamic admin management without redeployment
 - ✅ Listings auto-approve (không cần pending workflow)
 - ✅ Contact info (phone/email) lấy từ users collection (không lưu trong listings)
 - ✅ Portfolios có visibility control (private/public)

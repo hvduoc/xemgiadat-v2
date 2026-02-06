@@ -45,15 +45,22 @@ Mở file [`firestore.rules`](./firestore.rules) trong repo này, copy toàn b�
 
 | Collection | Read | Create | Update/Delete |
 |-----------|------|--------|---------------|
-| `users` | Public | Own only | Own only |
-| `listings` | Public | Own + auto-approve | Own only |
-| `portfolios` | Public | Own only | Own only |
-| `feedback` | Auth only | Auth only | - |
+| `users` | Public | Own only | Own only (admin can delete) |
+| `listings` | Public | Own + auto-approve + validation | Own only (admin can manage) |
+| `portfolios` | Public/Private/Admin | Own + validation | Own only (admin can delete) |
+| `feedback` | Admin only | Public (no auth) | Admin only |
+| `analytics` | Admin only | Admin only | Admin only |
+| `beta-signups` | Admin only | Public (with email validation) | Admin only |
+| **Default** | Deny | Deny | Deny |
 
-**Key Changes từ v1**:
-- ✅ Listings auto-approve (không cần admin duyệt)
-- ✅ Users collection public read (để fetch contact info)
-- ✅ Simplified validation (chỉ check userId match)
+**Key Features**:
+- ✅ Admin UID: `FEpPWWT1EaTWQ9FOqBxWN5FeEJk1` (Ba Được) với special permissions
+- ✅ Listings auto-approve (không cần pending workflow)
+- ✅ Contact info (phone/email) lấy từ users collection (không lưu trong listings)
+- ✅ Portfolios có visibility control (private/public)
+- ✅ Validation chi tiết cho price (negotiable hoặc fixed)
+- ✅ Default deny rule cho security
+- ✅ Backward compatible với v1 data
 
 ---
 

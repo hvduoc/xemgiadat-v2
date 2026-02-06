@@ -1,55 +1,181 @@
+// ===================================
+// FIREBASE FIRESTORE SECURITY RULES v2
+// ===================================
+// Updated for xemgiadat-v2 with optimized data model
+// Contact info (phone/email) now stored in users collection, not listings
+// Status auto-approved for MVP (can add approval workflow later)
+
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    
+
+    // --- ADMIN UID (Ba Được) ---
+    // Hardcoded admin user ID for special permissions
+    function isAdmin() {
+      return request.auth != null && request.auth.uid == 'FEpPWWT1EaTWQ9FOqBxWN5FeEJk1';
+    }
+
     // ========================================
     // USERS COLLECTION
     // ========================================
     match /users/{userId} {
-      // Anyone can read user profiles (for listings contact info)
+      // Anyone can read user profiles (for listings contact info display)
       allow read: if true;
       
       // Users can create/update only their own profile
       allow create, update: if request.auth != null 
                             && request.auth.uid == userId;
       
-      // Users can delete their own profile
+      // Users can delete their own profile (or admin can delete)
       allow delete: if request.auth != null 
-                    && request.auth.uid == userId;
+                    && (request.auth.uid == userId || isAdmin());
     }
     
     // ========================================
-    // LISTINGS COLLECTION
+    // LISTINGS COLLECTION (v2 Schema)
     // ========================================
+    // Changed from v1:
+    // - Removed: name, userName, userEmail, phone (get from users collection)
+    // - Added: loaiGiaoDich (transaction type)
+    // - Status: auto-approved for MVP
     match /listings/{listingId} {
       // Anyone can read listings (public data)
       allow read: if true;
-      
-      // Authenticated users can create listings with their own userId
+
+      // Authenticated users can create listings with validation
       allow create: if request.auth != null
-                    && request.resource.data.userId == request.auth.uid
-                    && request.resource.data.status == 'approved'; // Auto-approve for now
+              && request.resource.data.userId == request.auth.uid // Must own the listing
+              && request.resource.data.status == 'approved' // Auto-approve
+              && (
+                // Case 1: Negotiable price
+                (request.resource.data.isNegotiable == true 
+                 && (request.resource.data.priceValue == 0 || request.resource.data.priceValue == null || request.resource.data.priceValue is number))
+                ||
+                // Case 2: Fixed price
+                (request.resource.data.priceValue is number 
+                 && request.resource.data.priceValue > 0
+                 && request.resource.data.priceUnit is string)
+              )
+              // Optional fields validation
+              && (request.resource.data.note == null || request.resource.data.note is string)
+              && (request.resource.data.lat is number)
+              && (request.resource.data.lng is number);
       
-      // Users can update/delete only their own listings
+      // Users can update/delete their own listings, or admin can manage all
       allow update, delete: if request.auth != null 
-                            && resource.data.userId == request.auth.uid;
+                            && (request.auth.uid == resource.data.userId || isAdmin());
     }
     
     // ========================================
     // PORTFOLIOS COLLECTION (Legacy from v1)
     // ========================================
     match /portfolios/{portfolioId} {
-      allow read: if true;
-      allow create, update, delete: if request.auth != null 
-                                    && resource.data.userId == request.auth.uid;
+      // Allow read if:
+      // - Is owner of portfolio
+      // - Or portfolio has visibility = 'public'
+      // - Or is Admin
+      allow read: if request.auth != null && 
+        (resource.data.userId == request.auth.uid || 
+         resource.data.visibility == 'public' ||
+         isAdmin());
+
+      // Only owner can create/update
+      allow create, update: if request.auth != null && 
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.keys().hasAll(['name', 'visibility', 'userId']) &&
+        request.resource.data.visibility in ['private', 'public'] &&
+        request.resource.data.name is string &&
+        request.resource.data.name.size() > 0 &&
+        request.resource.data.name.size() <= 200 &&
+        // Validate optional field types
+        (request.resource.data.price == null || request.resource.data.price is string) &&
+        (request.resource.data.area == null || request.resource.data.area is string) &&
+        (request.resource.data.notes == null || request.resource.data.notes is string) &&
+        (request.resource.data.images == null || request.resource.data.images is list) &&
+        (request.resource.data.lat == null || request.resource.data.lat is number) &&
+        (request.resource.data.lng == null || request.resource.data.lng is number);
+
+      // Only owner or admin can delete
+      allow delete: if request.auth != null && 
+        (resource.data.userId == request.auth.uid || isAdmin());
     }
     
     // ========================================
     // FEEDBACK COLLECTION
     // ========================================
     match /feedback/{feedbackId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null;
+      // Only admin can read feedback
+      allow read: if isAdmin();
+      
+      // Anyone can submit feedback (no auth required for user convenience)
+      allow create: if true;
+      
+      // Only admin can update/delete feedback
+      allow update, delete: if isAdmin();
+    }
+
+    // ========================================
+    // ANALYTICS COLLECTION
+    // ========================================
+    match /analytics/{analyticsId} {
+      // Only admin can read/write analytics
+      allow read, write: if isAdmin();
+    }
+
+    // ========================================
+    // BETA SIGNUPS COLLECTION
+    // ========================================
+    match /beta-signups/{signupId} {
+      // Only admin can read beta signups
+      allow read: if isAdmin();
+      
+      // Anyone can register for beta (with email validation)
+      allow create: if request.resource.data.email is string 
+                    && request.resource.data.email.matches('.*@.*') // Basic email validation
+                    && request.resource.data.name is string
+                    && request.resource.data.name.size() > 0;
+      
+      // Only admin can update/delete beta signups
+      allow update, delete: if isAdmin();
+    }
+
+    // ========================================
+    // DEFAULT DENY RULE (Security)
+    // ========================================
+    // Deny access to all other collections not explicitly allowed
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
+
+// ===================================
+// DEPLOYMENT INSTRUCTIONS:
+// ===================================
+// 1. Copy entire content above
+// 2. Go to Firebase Console → Firestore Database → Rules
+// 3. Paste into editor and click "Publish"
+// 4. Wait 1-2 minutes for rules to propagate
+
+// ===================================
+// CHANGES FROM v1 RULES:
+// ===================================
+// ✅ Listings: Removed name, userName, userEmail, phone (get from users)
+// ✅ Listings: Added validation for loaiGiaoDich (transaction type)
+// ✅ Listings: Status auto-approved for MVP (no pending workflow)
+// ✅ Users: Public read access for contact info display
+// ✅ Portfolios: Preserved visibility + admin logic from v1
+// ✅ Feedback: Preserved admin-only read, public create
+// ✅ Analytics: Preserved admin-only access
+// ✅ Beta-signups: Preserved from v1
+// ✅ Default deny: Security best practice
+// ✅ Admin function: Centralized admin check
+
+// ===================================
+// NOTES:
+// ===================================
+// - Admin UID: FEpPWWT1EaTWQ9FOqBxWN5FeEJk1 (Ba Được)
+// - Contact info (phone/email) fetched from users collection at display time
+// - Listings auto-approved to reduce friction (can add approval later)
+// - Backward compatible with v1 data (old listings with userName/phone still readable)

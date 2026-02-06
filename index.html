@@ -269,6 +269,7 @@
                     }
                 },
                     signInFlow: 'popup',
+                credentialHelper: window.firebaseui.auth.CredentialHelper.NONE,
                 signInOptions: [
                     window.firebase.auth.GoogleAuthProvider.PROVIDER_ID,
                     window.firebase.auth.FacebookAuthProvider.PROVIDER_ID,
@@ -706,6 +707,106 @@
                 const [showLogin, setShowLogin] = useState(false);
                 const [showUserMenu, setShowUserMenu] = useState(false);
                 const [shareOpen, setShareOpen] = useState(false);
+            const LISTINGS_SOURCE_ID = 'user-listings';
+            const LISTINGS_LAYER_CLUSTERS = 'user-listings-clusters';
+            const LISTINGS_LAYER_COUNT = 'user-listings-cluster-count';
+            const LISTINGS_LAYER_POINTS = 'user-listings-points';
+
+            const ensureListingsLayers = (map) => {
+                if (!map || map.getSource(LISTINGS_SOURCE_ID)) return;
+
+                map.addSource(LISTINGS_SOURCE_ID, {
+                    type: 'geojson',
+                    data: {
+                        type: 'FeatureCollection',
+                        features: []
+                    },
+                    cluster: true,
+                    clusterMaxZoom: 16,
+                    clusterRadius: 45
+                });
+
+                map.addLayer({
+                    id: LISTINGS_LAYER_CLUSTERS,
+                    type: 'circle',
+                    source: LISTINGS_SOURCE_ID,
+                    filter: ['has', 'point_count'],
+                    paint: {
+                        'circle-color': '#2563eb',
+                        'circle-radius': ['step', ['get', 'point_count'], 16, 10, 20, 30, 26],
+                        'circle-opacity': 0.9
+                    }
+                });
+
+                map.addLayer({
+                    id: LISTINGS_LAYER_COUNT,
+                    type: 'symbol',
+                    source: LISTINGS_SOURCE_ID,
+                    filter: ['has', 'point_count'],
+                    layout: {
+                        'text-field': '{point_count_abbreviated}',
+                        'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+                        'text-size': 12
+                    },
+                    paint: {
+                        'text-color': '#ffffff'
+                    }
+                });
+
+                map.addLayer({
+                    id: LISTINGS_LAYER_POINTS,
+                    type: 'circle',
+                    source: LISTINGS_SOURCE_ID,
+                    filter: ['!', ['has', 'point_count']],
+                    paint: {
+                        'circle-color': '#f97316',
+                        'circle-radius': 6,
+                        'circle-stroke-width': 2,
+                        'circle-stroke-color': '#ffffff'
+                    }
+                });
+            };
+
+            const refreshListings = async (map) => {
+                if (!map) return;
+                try {
+                    const firebaseInit = window.__initFirebase;
+                    if (!firebaseInit) return;
+
+                    const { db } = await firebaseInit();
+                    const snapshot = await db.collection('listings').limit(200).get();
+                    const features = snapshot.docs.map(doc => {
+                        const data = doc.data() || {};
+                        if (typeof data.lng !== 'number' || typeof data.lat !== 'number') return null;
+                        return {
+                            type: 'Feature',
+                            geometry: {
+                                type: 'Point',
+                                coordinates: [data.lng, data.lat]
+                            },
+                            properties: {
+                                id: doc.id,
+                                so_to: data.soHieuToBanDo || '',
+                                so_thua: data.soThuTuThua || '',
+                                dien_tich: data.dienTich || 0,
+                                priceValue: data.priceValue || 0,
+                                userName: data.userName || '',
+                                status: data.status || 'pending'
+                            }
+                        };
+                    }).filter(Boolean);
+
+                    const source = map.getSource(LISTINGS_SOURCE_ID);
+                    if (source && source.setData) {
+                        source.setData({
+                            type: 'FeatureCollection',
+                            features
+                        });
+                    }
+                } catch (err) {
+                    console.warn('[Listings] Load failed:', err);
+                }
+            };
 
             // Clear dimensions and highlight when selected is cleared
             useEffect(() => {
@@ -907,6 +1008,9 @@
                                             }, 1000);
                     }
                     console.log('[MAP] ✓ Loaded with vector parcels');
+
+                    ensureListingsLayers(map);
+                    refreshListings(map);
                 
                                 // Auto-update cache when map stops moving
                                 map.on('idle', () => {
@@ -1060,13 +1164,65 @@
                 };
             };
 
-            const submitForm = () => {
+            const submitForm = async () => {
+                if (!authUser) {
+                    alert('Vui lòng đăng nhập để đăng tin rao bán!');
+                    setShowLogin(true);
+                    return;
+                }
+
+                if (!selected) return;
+
                 setIsSubmitting(true);
-                setTimeout(() => {
+                try {
+                    const firebaseInit = window.__initFirebase;
+                    if (!firebaseInit) throw new Error('Firebase not ready');
+
+                    const { db } = await firebaseInit();
+                    const now = window.firebase.firestore.FieldValue.serverTimestamp();
+                    const coords = selected.coordinates || [108.2022, 16.0544];
+                    const priceValue = Number(form.price || 0);
+                    const note = (form.note || '').trim().slice(0, 500);
+
+                    const listing = {
+                        userId: authUser.uid,
+                        userName: authUser.displayName || authUser.email || '',
+                        phone: form.phone || '',
+                        note,
+                        lat: coords[1],
+                        lng: coords[0],
+                        maXa: selected.ma_xa || '',
+                        soThuTuThua: selected.so_thua || '',
+                        soHieuToBanDo: selected.so_to || '',
+                        dienTich: selected.dien_tich || 0,
+                        priceValue,
+                        priceUnit: 'VND',
+                        status: 'pending',
+                        imageCount: images.length || 0,
+                        createdAt: now,
+                        updatedAt: now
+                    };
+
+                    await db.collection('listings').add(listing);
+
+                    const map = window.MapController?.getMap?.();
+                    if (map) {
+                        await refreshListings(map);
+                    }
+
                     setView('success');
+                    setTimeout(() => {
+                        setSelected(null);
+                        setView('info');
+                        setImages([]);
+                        setForm({ price: '', phone: '', note: '' });
+                    }, 2000);
+                } catch (err) {
+                    console.error('[Listings] Submit failed:', err);
+                    alert('Gửi tin thất bại. Vui lòng thử lại.');
+                } finally {
                     setIsSubmitting(false);
-                    setTimeout(() => { setSelected(null); setView('info'); setImages([]); setForm({price:'',phone:'',note:''}); }, 3000);
-                }, 1500);
+                }
             };
 
             const getShareBaseUrl = () => {

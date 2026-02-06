@@ -16,7 +16,9 @@ const {
   Banknote,
   Send,
   FileText,
-  Info
+  Info,
+  Bookmark,
+  BookmarkCheck
 } = lucide;
 
 const App = () => {
@@ -94,6 +96,26 @@ const App = () => {
         setSearchResults([]);
       }
     );
+    
+    // Handle deep link for listings
+    if (initial.listingId) {
+      console.log('[App] Loading listing from deep link:', initial.listingId);
+      controller.getListingById(initial.listingId).then((listing: ListingData | null) => {
+        if (listing) {
+          setSelectedListing(listing);
+          setSelectedParcel(null);
+          setView('listing-detail');
+          setPanelState('expanded');
+          
+          // Fly to listing location
+          if (listing.coordinates) {
+            controller.flyToCoordinates(listing.coordinates[0], listing.coordinates[1], 18);
+          }
+        } else {
+          console.warn('[App] Listing not found:', initial.listingId);
+        }
+      });
+    }
     
       // Khởi tạo SearchService sau khi map đã load
       const service = new SearchService(controller);
@@ -459,7 +481,33 @@ const App = () => {
                       </a>
                     )}
                     <div className="flex gap-3">
-                      <button className="flex-1 bg-slate-100 text-slate-600 h-14 rounded-2xl font-bold text-sm flex items-center justify-center gap-2">
+                      <button 
+                        onClick={() => {
+                          const BookmarkService = (window as any).BookmarkService;
+                          const isBookmarked = BookmarkService.toggleBookmark(selectedListing.id);
+                          // Force re-render
+                          setSelectedListing({...selectedListing});
+                        }}
+                        className="flex-1 bg-slate-100 text-slate-600 h-14 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 active:scale-95 transition-all"
+                      >
+                        {((window as any).BookmarkService?.isBookmarked(selectedListing.id)) ? 
+                          <><BookmarkCheck className="w-4 h-4" /> Đã lưu</> : 
+                          <><Bookmark className="w-4 h-4" /> Lưu</>
+                        }
+                      </button>
+                      <button 
+                        onClick={() => {
+                          const LinkService = (window as any).LinkService;
+                          const shareLink = LinkService.generateListingShareLink(
+                            selectedListing.id,
+                            selectedListing.coordinates[0],
+                            selectedListing.coordinates[1]
+                          );
+                          navigator.clipboard?.writeText(shareLink);
+                          alert('Link đã được copy!');
+                        }}
+                        className="flex-1 bg-slate-100 text-slate-600 h-14 rounded-2xl font-bold text-sm flex items-center justify-center gap-2"
+                      >
                         <Share2 className="w-4 h-4" /> Chia sẻ
                       </button>
                       <button 
@@ -474,7 +522,7 @@ const App = () => {
                         }}
                         className="flex-1 bg-slate-100 text-slate-600 h-14 rounded-2xl font-bold text-sm flex items-center justify-center gap-2"
                       >
-                        <MapPin className="w-4 h-4" /> Xem vị trí
+                        <MapPin className="w-4 h-4" /> Vị trí
                       </button>
                     </div>
                   </div>

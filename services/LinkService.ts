@@ -27,19 +27,21 @@ class LinkService {
         lng: searchParams.get('lng') ? parseFloat(searchParams.get('lng')!) : null,
         zoom: searchParams.get('z') ? parseFloat(searchParams.get('z')!) : null,
         parcelId: searchParams.get('p') || null,
+        listingId: searchParams.get('l') || null, // New: listing ID parameter
       };
     } catch (e) {
-      return { lat: null, lng: null, zoom: null, parcelId: null };
+      return { lat: null, lng: null, zoom: null, parcelId: null, listingId: null };
     }
   }
 
-  static updateUrl(lat: number, lng: number, zoom: number, parcelId?: string | null) {
+  static updateUrl(lat: number, lng: number, zoom: number, parcelId?: string | null, listingId?: string | null) {
     try {
       const params = new URLSearchParams();
       params.set('lat', lat.toFixed(6));
       params.set('lng', lng.toFixed(6));
       params.set('z', zoom.toFixed(2));
       if (parcelId) params.set('p', parcelId);
+      if (listingId) params.set('l', listingId); // New: listing ID parameter
       
       const hash = `#${params.toString()}`;
       
@@ -60,6 +62,16 @@ class LinkService {
     const loc = this.getSafeLocation();
     const baseUrl = loc.href.split('#')[0];
     const params = `lat=${lat.toFixed(6)}&lng=${lng.toFixed(6)}&z=18&p=${parcelId}`;
+    return `${baseUrl}#${params}`;
+  }
+
+  /**
+   * Generate share link for a listing
+   */
+  static generateListingShareLink(listingId: string, lat: number, lng: number) {
+    const loc = this.getSafeLocation();
+    const baseUrl = loc.href.split('#')[0];
+    const params = `lat=${lat.toFixed(6)}&lng=${lng.toFixed(6)}&z=18&l=${listingId}`;
     return `${baseUrl}#${params}`;
   }
 }

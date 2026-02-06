@@ -2,6 +2,9 @@ window.MapController = class MapController {
   private static instance: any = null;
   private map: any;
   private protocol: any;
+  private listingsCache: any = null;
+  private listingsCacheTimestamp: number = 0;
+  private readonly CACHE_DURATION_MS = 5 * 60 * 1000; // 5 minutes cache
 
   constructor() {
     this.protocol = new (window as any).pmtiles.Protocol();
@@ -374,17 +377,36 @@ window.MapController = class MapController {
     }
 
     /**
-     * Refresh listings from Firebase
+     * Refresh listings from Firebase with client-side caching
+     * @param forceRefresh - Force refresh even if cache is valid
      */
-    async refreshListings() {
+    async refreshListings(forceRefresh: boolean = false) {
       if (!this.map) return;
 
       try {
+        // Check cache validity
+        const now = Date.now();
+        const cacheAge = now - this.listingsCacheTimestamp;
+        const isCacheValid = this.listingsCache && cacheAge < this.CACHE_DURATION_MS;
+
+        if (!forceRefresh && isCacheValid) {
+          console.log(`[MapController] 📦 Using cached listings (age: ${Math.round(cacheAge / 1000)}s)`);
+          this.updateMapSource(this.listingsCache);
+          return;
+        }
+
+        console.log('[MapController] 🔄 Fetching fresh listings from Firebase...');
         const firebaseInit = (window as any).__initFirebase;
-        if (!firebaseInit) return;
+        if (!firebaseInit) {
+          throw new Error('Firebase not initialized');
+        }
 
         const { db } = await firebaseInit();
         const snapshot = await db.collection('listings').limit(200).get();
+        
+        if (!snapshot) {
+          throw new Error('Failed to fetch listings from Firebase');
+        }
         
         // Extract unique user IDs to fetch user profiles
         const uniqueUserIds = [...new Set(snapshot.docs.map((doc: any) => doc.data().userId).filter(Boolean))];
@@ -395,7 +417,10 @@ window.MapController = class MapController {
           const userPromises = uniqueUserIds.map((uid: string) => 
             db.collection('users').doc(uid).get()
               .then((userDoc: any) => ({ uid, data: userDoc.exists ? userDoc.data() : null }))
-              .catch(() => ({ uid, data: null }))
+              .catch((err: any) => {
+                console.warn(`[MapController] Failed to fetch user ${uid}:`, err);
+                return { uid, data: null };
+              })
           );
           const results = await Promise.all(userPromises);
           results.forEach(({ uid, data }: any) => {
@@ -404,48 +429,168 @@ window.MapController = class MapController {
         }
 
         const features = snapshot.docs.map((doc: any) => {
-          const data = doc.data() || {};
-          if (typeof data.lng !== 'number' || typeof data.lat !== 'number') return null;
-          
-          // Get user profile or fallback to old data
-          const userProfile = data.userId ? userProfiles[data.userId] : null;
-          const userName = userProfile?.displayName || data.userName || 'Người đăng';
-          const phone = userProfile?.phone || data.phone || '';
-          
-          return {
-            type: 'Feature',
-            geometry: {
-              type: 'Point',
-              coordinates: [data.lng, data.lat]
-            },
-            properties: {
-              id: doc.id,
-              userId: data.userId || '',
-              so_to: data.soHieuToBanDo || '',
-              so_thua: data.soThuTuThua || '',
-              dien_tich: data.dienTich || 0,
-              priceValue: data.priceValue || 0,
-              priceUnit: data.priceUnit || 'VND',
-              isNegotiable: data.isNegotiable || false,
-              loaiGiaoDich: data.loaiGiaoDich || 'ban-dat',
-              userName,
-              phone,
-              note: data.note || '',
-              status: data.status || 'approved'
+          try {
+            const data = doc.data() || {};
+            if (typeof data.lng !== 'number' || typeof data.lat !== 'number') {
+              console.warn(`[MapController] Invalid coordinates for listing ${doc.id}`);
+              return null;
             }
-          };
+            
+            // Get user profile or fallback to old data
+            const userProfile = data.userId ? userProfiles[data.userId] : null;
+            const userName = userProfile?.displayName || data.userName || 'Người đăng';
+            const phone = userProfile?.phone || data.phone || '';
+            
+            return {
+              type: 'Feature',
+              geometry: {
+                type: 'Point',
+                coordinates: [data.lng, data.lat]
+              },
+              properties: {
+                id: doc.id,
+                userId: data.userId || '',
+                so_to: data.soHieuToBanDo || '',
+                so_thua: data.soThuTuThua || '',
+                dien_tich: data.dienTich || 0,
+                priceValue: data.priceValue || 0,
+                priceUnit: data.priceUnit || 'VND',
+                isNegotiable: data.isNegotiable || false,
+                loaiGiaoDich: data.loaiGiaoDich || 'ban-dat',
+                userName,
+                phone,
+                note: data.note || '',
+                status: data.status || 'approved'
+              }
+            };
+          } catch (err) {
+            console.warn(`[MapController] Error processing listing ${doc.id}:`, err);
+            return null;
+          }
         }).filter(Boolean);
 
+        // Cache the results
+        this.listingsCache = features;
+        this.listingsCacheTimestamp = now;
+        
+        this.updateMapSource(features);
+        console.log(`[MapController] ✅ Loaded ${features.length} listings (cached for ${this.CACHE_DURATION_MS / 1000}s)`);
+      } catch (err: any) {
+        console.error('[MapController] ❌ Failed to load listings:', err);
+        
+        // Show user-friendly error
+        const errorMessage = err.message || 'Unknown error';
+        if (typeof (window as any).showNotification === 'function') {
+          (window as any).showNotification('Không thể tải dữ liệu tin đăng. Vui lòng thử lại sau.', 'error');
+        } else {
+          console.error('[MapController] Error notification handler not found');
+        }
+        
+        // Use cached data if available as fallback
+        if (this.listingsCache) {
+          console.log('[MapController] 📦 Using stale cache as fallback');
+          this.updateMapSource(this.listingsCache);
+        }
+      }
+    }
+
+    /**
+     * Update map source with listing data
+     */
+    private updateMapSource(features: any[]) {
+      try {
         const source = this.map.getSource('user-listings') as any;
         if (source && typeof source.setData === 'function') {
           source.setData({
             type: 'FeatureCollection',
             features
           });
-          console.log(`[MapController] ✅ Loaded ${features.length} listings`);
         }
       } catch (err) {
-        console.warn('[MapController] Failed to load listings:', err);
+        console.error('[MapController] Failed to update map source:', err);
+      }
+    }
+
+    /**
+     * Invalidate listings cache (call when user submits new listing)
+     */
+    invalidateListingsCache() {
+      this.listingsCache = null;
+      this.listingsCacheTimestamp = 0;
+      console.log('[MapController] 🗑️ Cache invalidated');
+    }
+
+    /**
+     * Get listing by ID from cache or Firebase
+     */
+    async getListingById(listingId: string): Promise<any | null> {
+      try {
+        // Try cache first
+        if (this.listingsCache) {
+          const cached = this.listingsCache.find((f: any) => f.properties.id === listingId);
+          if (cached) {
+            console.log('[MapController] 📦 Found listing in cache');
+            return cached.properties;
+          }
+        }
+
+        // Fetch from Firebase
+        console.log('[MapController] 🔄 Fetching listing from Firebase...');
+        const firebaseInit = (window as any).__initFirebase;
+        if (!firebaseInit) {
+          throw new Error('Firebase not initialized');
+        }
+
+        const { db } = await firebaseInit();
+        const doc = await db.collection('listings').doc(listingId).get();
+        
+        if (!doc.exists) {
+          console.warn('[MapController] Listing not found:', listingId);
+          return null;
+        }
+
+        const data = doc.data();
+        if (typeof data.lng !== 'number' || typeof data.lat !== 'number') {
+          console.warn('[MapController] Invalid coordinates for listing:', listingId);
+          return null;
+        }
+
+        // Get user profile
+        let userName = data.userName || 'Người đăng';
+        let phone = data.phone || '';
+        
+        if (data.userId) {
+          try {
+            const userDoc = await db.collection('users').doc(data.userId).get();
+            if (userDoc.exists) {
+              const userData = userDoc.data();
+              userName = userData.displayName || userName;
+              phone = userData.phone || phone;
+            }
+          } catch (err) {
+            console.warn('[MapController] Failed to fetch user profile:', err);
+          }
+        }
+
+        return {
+          id: doc.id,
+          userId: data.userId || '',
+          so_to: data.soHieuToBanDo || '',
+          so_thua: data.soThuTuThua || '',
+          dien_tich: data.dienTich || 0,
+          priceValue: data.priceValue || 0,
+          priceUnit: data.priceUnit || 'VND',
+          isNegotiable: data.isNegotiable || false,
+          loaiGiaoDich: data.loaiGiaoDich || 'ban-dat',
+          userName,
+          phone,
+          note: data.note || '',
+          status: data.status || 'approved',
+          coordinates: [data.lng, data.lat]
+        };
+      } catch (err) {
+        console.error('[MapController] Failed to get listing:', err);
+        return null;
       }
     }
 };

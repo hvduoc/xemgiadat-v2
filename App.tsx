@@ -18,7 +18,12 @@ const {
   FileText,
   Info,
   Bookmark,
-  BookmarkCheck
+  BookmarkCheck,
+  Sparkles,
+  TrendingUp,
+  TrendingDown,
+  Eye,
+  Box
 } = lucide;
 
 const App = () => {
@@ -35,6 +40,7 @@ const App = () => {
   const [selectedListing, setSelectedListing] = useState(null as ListingData | null);
   const [view, setView] = useState('info' as 'info' | 'listing' | 'success' | 'listing-detail');
   const [panelState, setPanelState] = useState('expanded' as 'peek' | 'expanded');
+  const [is3DView, setIs3DView] = useState(false);
   
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState<ParcelData[]>([]);
@@ -126,6 +132,78 @@ const App = () => {
       };
   }, [controller]);
 
+  // Haptic feedback simulation
+  const triggerHaptic = (type: 'light' | 'medium' | 'heavy' = 'medium') => {
+    // Try native vibration API
+    if ('vibrate' in navigator) {
+      const durations = {
+        light: 10,
+        medium: 20,
+        heavy: 30
+      };
+      navigator.vibrate(durations[type]);
+    }
+    
+    // Visual feedback through CSS animation
+    const activeElement = document.activeElement as HTMLElement;
+    if (activeElement) {
+      activeElement.style.transform = 'scale(0.95)';
+      setTimeout(() => {
+        activeElement.style.transform = '';
+      }, 100);
+    }
+  };
+
+  // Toggle 3D view
+  const toggle3DView = () => {
+    const map = controller.getMap();
+    if (!map) return;
+
+    triggerHaptic('medium');
+    
+    if (!is3DView) {
+      // Switch to 3D view
+      map.easeTo({
+        pitch: 60,
+        bearing: -20,
+        duration: 1000
+      });
+      setIs3DView(true);
+    } else {
+      // Switch back to 2D view
+      map.easeTo({
+        pitch: 0,
+        bearing: 0,
+        duration: 1000
+      });
+      setIs3DView(false);
+    }
+  };
+
+  // Get AI insight for current parcel
+  const getAIInsight = () => {
+    const AIInsightService = (window as any).AIInsightService;
+    if (!AIInsightService) return null;
+
+    if (selectedParcel) {
+      return AIInsightService.getPriceInsight(selectedParcel);
+    } else if (selectedListing) {
+      return AIInsightService.getListingInsight(selectedListing);
+    }
+    return null;
+  };
+
+  // Get status badges
+  const getStatusBadges = () => {
+    const AIInsightService = (window as any).AIInsightService;
+    if (!AIInsightService) return [];
+
+    const item = selectedParcel || selectedListing;
+    if (!item) return [];
+
+    return AIInsightService.getStatusBadges(item);
+  };
+
     const handleSearch = async (e: React.FormEvent) => {
       e.preventDefault();
       if (!searchQuery.trim() || !searchService) return;
@@ -185,9 +263,9 @@ const App = () => {
 
   return (
     <div className="relative w-full h-full bg-slate-900 overflow-hidden">
-        {/* Search Bar */}
+        {/* Search Bar with Glassmorphism */}
         <div className="absolute top-4 left-4 right-4 z-50">
-          <form onSubmit={handleSearch} className="bg-white rounded-2xl shadow-lg border border-slate-200">
+          <form onSubmit={handleSearch} className="backdrop-blur-xl bg-white/90 rounded-2xl shadow-2xl border border-white/20">
             <div className="flex items-center px-4 py-3">
               <svg className="w-5 h-5 text-slate-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <circle cx="11" cy="11" r="8" strokeWidth="2"/>
@@ -245,24 +323,60 @@ const App = () => {
           </form>
         </div>
 
+        {/* 3D View Toggle Button */}
+        <div className="absolute bottom-28 right-4 z-50">
+          <button
+            onClick={toggle3DView}
+            className={`backdrop-blur-xl ${is3DView ? 'bg-blue-600/90' : 'bg-white/90'} 
+              rounded-2xl shadow-2xl border ${is3DView ? 'border-blue-400/20' : 'border-white/20'} 
+              p-4 transition-all duration-300 active:scale-95 hover:scale-105`}
+            aria-label={is3DView ? 'Chuyển về 2D' : 'Chuyển sang 3D'}
+          >
+            <Box className={`w-6 h-6 ${is3DView ? 'text-white' : 'text-slate-700'}`} />
+            <div className={`text-xs font-bold mt-1 ${is3DView ? 'text-white' : 'text-slate-700'}`}>
+              {is3DView ? '2D' : '3D'}
+            </div>
+          </button>
+        </div>
+
       <div ref={mapContainerRef} className="w-full h-full" />
 
       {(selectedParcel || selectedListing) && (
         <div className={`absolute bottom-0 inset-x-0 z-[100] transition-all duration-300 ease-out transform
           ${panelState === 'expanded' ? 'translate-y-0' : 'translate-y-[calc(100%-80px)]'}
         `}>
-          <div className="max-w-xl mx-auto bg-white rounded-t-[2.5rem] shadow-[0_-10px_50px_rgba(0,0,0,0.2)] pb-safe border-t border-slate-100">
+          <div className="max-w-xl mx-auto backdrop-blur-2xl bg-white/95 rounded-t-[2.5rem] shadow-[0_-20px_60px_rgba(0,0,0,0.3)] pb-safe border-t border-white/20">
             {/* Handle Bar */}
             <div 
               className="h-10 flex flex-col items-center justify-center cursor-pointer"
               onClick={() => setPanelState(panelState === 'peek' ? 'expanded' : 'peek')}
             >
-              <div className="w-12 h-1.5 bg-slate-200 rounded-full" />
+              <div className="w-12 h-1.5 bg-slate-300 rounded-full" />
             </div>
 
             <div className="px-6 pb-8 overflow-y-auto max-h-[85vh] scrollbar-hide">
               {view === 'info' && selectedParcel && (
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
+                  {/* Status Badges */}
+                  {getStatusBadges().length > 0 && (
+                    <div className="flex gap-2 mb-4 flex-wrap">
+                      {getStatusBadges().map((badge, i) => (
+                        <span 
+                          key={i}
+                          className={`px-3 py-1 rounded-full text-xs font-bold backdrop-blur-sm
+                            ${badge.includes('Giá tốt') || badge.includes('Hợp lý') ? 'bg-green-100 text-green-700 border border-green-200' :
+                              badge.includes('Cao cấp') || badge.includes('Hạng sang') ? 'bg-purple-100 text-purple-700 border border-purple-200' :
+                              badge.includes('Mới đăng') ? 'bg-blue-100 text-blue-700 border border-blue-200' :
+                              badge.includes('Đã xác thực') ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
+                              'bg-slate-100 text-slate-700 border border-slate-200'}
+                          `}
+                        >
+                          {badge}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
                   <div className="flex justify-between items-start mb-6">
                     <div>
                       <h2 className="text-2xl font-black text-slate-900 leading-tight">
@@ -298,18 +412,42 @@ const App = () => {
                     <Info className="w-6 h-6 text-yellow-400" />
                   </div>
 
+                  {/* AI Insights Section */}
+                  {getAIInsight() && (
+                    <div className="backdrop-blur-sm bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-100 p-5 rounded-2xl mb-6">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Sparkles className="w-5 h-5 text-indigo-600" />
+                        <span className="text-xs font-bold text-indigo-900 uppercase tracking-widest">AI Đánh giá</span>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        {getAIInsight()?.type === 'good' && <TrendingDown className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />}
+                        {getAIInsight()?.type === 'high' && <TrendingUp className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />}
+                        {getAIInsight()?.type === 'potential' && <Eye className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />}
+                        <p className="text-sm text-slate-700 leading-relaxed font-medium">
+                          {getAIInsight()?.message}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="flex flex-col gap-3">
                     <button 
-                      onClick={() => setView('listing')}
-                      className="w-full h-16 bg-slate-900 text-white rounded-2xl font-black text-lg flex items-center justify-center gap-3 shadow-xl active:scale-95 transition-all"
+                      onClick={() => { triggerHaptic('medium'); setView('listing'); }}
+                      className="w-full h-16 bg-gradient-to-r from-slate-900 to-slate-800 text-white rounded-2xl font-black text-lg flex items-center justify-center gap-3 shadow-xl active:scale-95 transition-all hover:shadow-2xl"
                     >
                       <Rocket className="w-6 h-6 text-yellow-400" /> Rao bán lô này
                     </button>
                     <div className="flex gap-3">
-                      <button className="flex-1 bg-slate-100 text-slate-600 h-14 rounded-2xl font-bold text-sm flex items-center justify-center gap-2">
+                      <button 
+                        onClick={() => triggerHaptic('light')}
+                        className="flex-1 backdrop-blur-sm bg-slate-100/80 text-slate-700 h-14 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 active:scale-95 transition-all"
+                      >
                         <Share2 className="w-4 h-4" /> Chia sẻ
                       </button>
-                      <button className="flex-1 bg-slate-100 text-slate-600 h-14 rounded-2xl font-bold text-sm flex items-center justify-center gap-2">
+                      <button 
+                        onClick={() => triggerHaptic('light')}
+                        className="flex-1 backdrop-blur-sm bg-slate-100/80 text-slate-700 h-14 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 active:scale-95 transition-all"
+                      >
                         <Copy className="w-4 h-4" /> Tọa độ
                       </button>
                     </div>
@@ -413,6 +551,26 @@ const App = () => {
 
               {view === 'listing-detail' && selectedListing && (
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
+                  {/* Status Badges */}
+                  {getStatusBadges().length > 0 && (
+                    <div className="flex gap-2 mb-4 flex-wrap">
+                      {getStatusBadges().map((badge, i) => (
+                        <span 
+                          key={i}
+                          className={`px-3 py-1 rounded-full text-xs font-bold backdrop-blur-sm
+                            ${badge.includes('Giá tốt') || badge.includes('Hợp lý') ? 'bg-green-100 text-green-700 border border-green-200' :
+                              badge.includes('Cao cấp') || badge.includes('Hạng sang') ? 'bg-purple-100 text-purple-700 border border-purple-200' :
+                              badge.includes('Mới đăng') ? 'bg-blue-100 text-blue-700 border border-blue-200' :
+                              badge.includes('Đã xác thực') ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
+                              'bg-slate-100 text-slate-700 border border-slate-200'}
+                          `}
+                        >
+                          {badge}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
                   <div className="flex justify-between items-start mb-6">
                     <div>
                       <h2 className="text-2xl font-black text-slate-900 leading-tight">
@@ -457,6 +615,24 @@ const App = () => {
                     </div>
                   )}
 
+                  {/* AI Insights Section */}
+                  {getAIInsight() && (
+                    <div className="backdrop-blur-sm bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-100 p-5 rounded-2xl mb-6">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Sparkles className="w-5 h-5 text-indigo-600" />
+                        <span className="text-xs font-bold text-indigo-900 uppercase tracking-widest">AI Đánh giá</span>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        {getAIInsight()?.type === 'good' && <TrendingDown className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />}
+                        {getAIInsight()?.type === 'high' && <TrendingUp className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />}
+                        {getAIInsight()?.type === 'potential' && <Eye className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />}
+                        <p className="text-sm text-slate-700 leading-relaxed font-medium">
+                          {getAIInsight()?.message}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="bg-slate-50 border border-slate-200 p-5 rounded-2xl mb-6">
                     <div className="flex items-center gap-2 mb-3">
                       <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
@@ -475,7 +651,8 @@ const App = () => {
                     {selectedListing.phone && (
                       <a 
                         href={`tel:${selectedListing.phone}`}
-                        className="w-full h-16 bg-green-600 text-white rounded-2xl font-black text-lg flex items-center justify-center gap-3 shadow-xl active:scale-95 transition-all"
+                        onClick={() => triggerHaptic('heavy')}
+                        className="w-full h-16 bg-gradient-to-r from-green-600 to-green-500 text-white rounded-2xl font-black text-lg flex items-center justify-center gap-3 shadow-xl active:scale-95 transition-all hover:shadow-2xl"
                       >
                         <Phone className="w-6 h-6" /> Gọi điện ngay
                       </a>
@@ -483,12 +660,13 @@ const App = () => {
                     <div className="flex gap-3">
                       <button 
                         onClick={() => {
+                          triggerHaptic('medium');
                           const BookmarkService = (window as any).BookmarkService;
                           const isBookmarked = BookmarkService.toggleBookmark(selectedListing.id);
                           // Force re-render
                           setSelectedListing({...selectedListing});
                         }}
-                        className="flex-1 bg-slate-100 text-slate-600 h-14 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 active:scale-95 transition-all"
+                        className="flex-1 backdrop-blur-sm bg-slate-100/80 text-slate-700 h-14 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 active:scale-95 transition-all"
                       >
                         {((window as any).BookmarkService?.isBookmarked(selectedListing.id)) ? 
                           <><BookmarkCheck className="w-4 h-4" /> Đã lưu</> : 
@@ -497,6 +675,7 @@ const App = () => {
                       </button>
                       <button 
                         onClick={() => {
+                          triggerHaptic('light');
                           const LinkService = (window as any).LinkService;
                           const shareLink = LinkService.generateListingShareLink(
                             selectedListing.id,

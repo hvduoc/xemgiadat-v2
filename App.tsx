@@ -23,7 +23,12 @@ const {
   TrendingUp,
   TrendingDown,
   Eye,
-  Box
+  Box,
+  Wrench,
+  Coffee,
+  Video,
+  Scissors,
+  QrCode
 } = lucide;
 
 const App = () => {
@@ -41,6 +46,10 @@ const App = () => {
   const [view, setView] = useState('info' as 'info' | 'listing' | 'success' | 'listing-detail');
   const [panelState, setPanelState] = useState('expanded' as 'peek' | 'expanded');
   const [is3DView, setIs3DView] = useState(false);
+  
+  // Monetization modals
+  const [showVIPModal, setShowVIPModal] = useState(false);
+  const [showCoffeeModal, setShowCoffeeModal] = useState(false);
   
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState<ParcelData[]>([]);
@@ -221,21 +230,21 @@ const App = () => {
     };
 
     const handleSelectSearchResult = async (parcel: ParcelData) => {
-      // Bay đến thửa đất
-      await controller.flyToParcel(parcel.so_to, parcel.so_thua);
-    
+      // Calculate price
+      const PriceService = (window as any).PriceService;
+      parcel.gia_uoc_tinh = PriceService.calculateTotalValue(parcel);
+      
+      // Set selected parcel immediately to open Bottom Sheet
+      setSelectedParcel(parcel);
+      setView('info');
+      setPanelState('expanded');
+      
       // Clear search
       setSearchQuery('');
       setSearchResults([]);
-    
-      // Set selected parcel sau một chút để map kịp bay đến
-      setTimeout(() => {
-        const PriceService = (window as any).PriceService;
-        parcel.gia_uoc_tinh = PriceService.calculateTotalValue(parcel);
-        setSelectedParcel(parcel);
-        setView('info');
-        setPanelState('expanded');
-      }, 1800);
+      
+      // Fly to parcel location
+      await controller.flyToParcel(parcel.so_to, parcel.so_thua);
     };
 
   const handleImageUpload = async (e: any) => {
@@ -259,6 +268,15 @@ const App = () => {
       setSelectedParcel(null);
       setView('info');
     }, 3000);
+  };
+  
+  // Monetization handlers
+  const handleVIPService = (service: string) => {
+    const item = selectedParcel || selectedListing;
+    const location = item ? `Tờ ${item.so_to}, Thửa ${item.so_thua}` : 'Vị trí chưa xác định';
+    const zaloLink = `https://zalo.me/0123456789?text=${encodeURIComponent(`Xin chào! Tôi muốn sử dụng dịch vụ: ${service} cho ${location}`)}`;
+    window.open(zaloLink, '_blank');
+    setShowVIPModal(false);
   };
 
   return (
@@ -324,7 +342,7 @@ const App = () => {
         </div>
 
         {/* 3D View Toggle Button */}
-        <div className="absolute bottom-28 right-4 z-50">
+        <div className="absolute bottom-28 right-4 z-50 flex flex-col gap-3">
           <button
             onClick={toggle3DView}
             className={`backdrop-blur-xl ${is3DView ? 'bg-blue-600/90' : 'bg-white/90'} 
@@ -336,6 +354,16 @@ const App = () => {
             <div className={`text-xs font-bold mt-1 ${is3DView ? 'text-white' : 'text-slate-700'}`}>
               {is3DView ? '2D' : '3D'}
             </div>
+          </button>
+          
+          {/* Coffee Button */}
+          <button
+            onClick={() => setShowCoffeeModal(true)}
+            className="backdrop-blur-xl bg-amber-600/90 rounded-2xl shadow-2xl border border-amber-400/20 p-4 transition-all duration-300 active:scale-95 hover:scale-105"
+            aria-label="Mời cà phê"
+          >
+            <Coffee className="w-6 h-6 text-white" />
+            <div className="text-xs font-bold mt-1 text-white">Cà phê</div>
           </button>
         </div>
 
@@ -437,6 +465,15 @@ const App = () => {
                     >
                       <Rocket className="w-6 h-6 text-yellow-400" /> Rao bán lô này
                     </button>
+                    
+                    {/* VIP Service Button */}
+                    <button 
+                      onClick={() => { triggerHaptic('medium'); setShowVIPModal(true); }}
+                      className="w-full h-14 bg-gradient-to-r from-purple-600 to-purple-500 text-white rounded-2xl font-bold text-base flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all hover:shadow-xl"
+                    >
+                      <Wrench className="w-5 h-5" /> Yêu cầu Dịch vụ
+                    </button>
+                    
                     <div className="flex gap-3">
                       <button 
                         onClick={() => triggerHaptic('light')}
@@ -450,6 +487,11 @@ const App = () => {
                       >
                         <Copy className="w-4 h-4" /> Tọa độ
                       </button>
+                    </div>
+                    
+                    {/* Advertising Placeholder */}
+                    <div className="mt-2 bg-gradient-to-r from-slate-50 to-slate-100 border border-slate-200 rounded-xl p-4 text-center">
+                      <p className="text-xs text-slate-400 font-medium">📢 Liên hệ quảng cáo tại đây</p>
                     </div>
                   </div>
                 </div>
@@ -552,24 +594,28 @@ const App = () => {
               {view === 'listing-detail' && selectedListing && (
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
                   {/* Status Badges */}
-                  {getStatusBadges().length > 0 && (
-                    <div className="flex gap-2 mb-4 flex-wrap">
-                      {getStatusBadges().map((badge, i) => (
-                        <span 
-                          key={i}
-                          className={`px-3 py-1 rounded-full text-xs font-bold backdrop-blur-sm
-                            ${badge.includes('Giá tốt') || badge.includes('Hợp lý') ? 'bg-green-100 text-green-700 border border-green-200' :
-                              badge.includes('Cao cấp') || badge.includes('Hạng sang') ? 'bg-purple-100 text-purple-700 border border-purple-200' :
-                              badge.includes('Mới đăng') ? 'bg-blue-100 text-blue-700 border border-blue-200' :
-                              badge.includes('Đã xác thực') ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
-                              'bg-slate-100 text-slate-700 border border-slate-200'}
-                          `}
-                        >
-                          {badge}
-                        </span>
-                      ))}
-                    </div>
-                  )}
+                  <div className="flex gap-2 mb-4 flex-wrap">
+                    {getStatusBadges().map((badge, i) => (
+                      <span 
+                        key={i}
+                        className={`px-3 py-1 rounded-full text-xs font-bold backdrop-blur-sm
+                          ${badge.includes('Giá tốt') || badge.includes('Hợp lý') ? 'bg-green-100 text-green-700 border border-green-200' :
+                            badge.includes('Cao cấp') || badge.includes('Hạng sang') ? 'bg-purple-100 text-purple-700 border border-purple-200' :
+                            badge.includes('Mới đăng') ? 'bg-blue-100 text-blue-700 border border-blue-200' :
+                            badge.includes('Đã xác thực') ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
+                            'bg-slate-100 text-slate-700 border border-slate-200'}
+                        `}
+                      >
+                        {badge}
+                      </span>
+                    ))}
+                    {/* Old Listing Badge */}
+                    {selectedListing.createdAt && ((window as any).DateFormatter?.isOldListing(selectedListing.createdAt)) && (
+                      <span className="px-3 py-1 rounded-full text-xs font-bold backdrop-blur-sm bg-gray-100 text-gray-600 border border-gray-300">
+                        ⏳ Tin cũ - Cần xác thực lại
+                      </span>
+                    )}
+                  </div>
 
                   <div className="flex justify-between items-start mb-6">
                     <div>
@@ -657,6 +703,15 @@ const App = () => {
                         <Phone className="w-6 h-6" /> Gọi điện ngay
                       </a>
                     )}
+                    
+                    {/* VIP Service Button */}
+                    <button 
+                      onClick={() => { triggerHaptic('medium'); setShowVIPModal(true); }}
+                      className="w-full h-14 bg-gradient-to-r from-purple-600 to-purple-500 text-white rounded-2xl font-bold text-base flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all hover:shadow-xl"
+                    >
+                      <Wrench className="w-5 h-5" /> Yêu cầu Dịch vụ
+                    </button>
+                    
                     <div className="flex gap-3">
                       <button 
                         onClick={() => {
@@ -704,6 +759,11 @@ const App = () => {
                         <MapPin className="w-4 h-4" /> Vị trí
                       </button>
                     </div>
+                    
+                    {/* Advertising Placeholder */}
+                    <div className="mt-2 bg-gradient-to-r from-slate-50 to-slate-100 border border-slate-200 rounded-xl p-4 text-center">
+                      <p className="text-xs text-slate-400 font-medium">📢 Liên hệ quảng cáo tại đây</p>
+                    </div>
                   </div>
                 </div>
               )}
@@ -719,6 +779,89 @@ const App = () => {
                   </p>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* VIP Service Modal */}
+      {showVIPModal && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setShowVIPModal(false)}>
+          <div className="bg-white rounded-3xl p-6 max-w-sm mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-black text-slate-900">🛠️ Dịch vụ VIP</h3>
+              <button onClick={() => setShowVIPModal(false)} className="p-2 hover:bg-slate-100 rounded-full">
+                <X className="w-5 h-5 text-slate-400" />
+              </button>
+            </div>
+            
+            <div className="space-y-3">
+              <button 
+                onClick={() => handleVIPService('Chụp ảnh 360°')}
+                className="w-full p-4 bg-gradient-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 rounded-2xl flex items-center gap-3 transition-all active:scale-95"
+              >
+                <Camera className="w-6 h-6 text-blue-600" />
+                <div className="text-left">
+                  <p className="font-bold text-slate-900">Chụp ảnh 360°</p>
+                  <p className="text-xs text-slate-600">Ảnh toàn cảnh chuyên nghiệp</p>
+                </div>
+              </button>
+              
+              <button 
+                onClick={() => handleVIPService('Quay Flycam')}
+                className="w-full p-4 bg-gradient-to-r from-purple-50 to-purple-100 hover:from-purple-100 hover:to-purple-200 rounded-2xl flex items-center gap-3 transition-all active:scale-95"
+              >
+                <Video className="w-6 h-6 text-purple-600" />
+                <div className="text-left">
+                  <p className="font-bold text-slate-900">Quay Flycam</p>
+                  <p className="text-xs text-slate-600">Video từ trên cao</p>
+                </div>
+              </button>
+              
+              <button 
+                onClick={() => handleVIPService('Dọn cỏ/Cắm mốc')}
+                className="w-full p-4 bg-gradient-to-r from-green-50 to-green-100 hover:from-green-100 hover:to-green-200 rounded-2xl flex items-center gap-3 transition-all active:scale-95"
+              >
+                <Scissors className="w-6 h-6 text-green-600" />
+                <div className="text-left">
+                  <p className="font-bold text-slate-900">Dọn cỏ / Cắm mốc</p>
+                  <p className="text-xs text-slate-600">Chăm sóc đất đai</p>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Coffee Modal */}
+      {showCoffeeModal && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setShowCoffeeModal(false)}>
+          <div className="bg-white rounded-3xl p-6 max-w-sm mx-4 shadow-2xl text-center" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-end mb-2">
+              <button onClick={() => setShowCoffeeModal(false)} className="p-2 hover:bg-slate-100 rounded-full">
+                <X className="w-5 h-5 text-slate-400" />
+              </button>
+            </div>
+            
+            <Coffee className="w-16 h-16 text-amber-600 mx-auto mb-4" />
+            <h3 className="text-2xl font-black text-slate-900 mb-2">☕ Mời cà phê</h3>
+            <p className="text-sm text-slate-600 mb-6">
+              Nếu ứng dụng hữu ích với bạn, hãy mời chúng tôi ly cà phê nhé! ❤️
+            </p>
+            
+            {/* QR Code Placeholder */}
+            <div className="bg-slate-100 rounded-2xl p-6 mb-4 flex items-center justify-center">
+              <QrCode className="w-32 h-32 text-slate-400" />
+            </div>
+            
+            <p className="text-xs text-slate-500 mb-2">Quét mã QR để gửi qua Momo/Banking</p>
+            <p className="text-xs font-bold text-slate-700">Số tài khoản: 0123456789</p>
+            <p className="text-xs text-slate-600">Ngân hàng: VCB - Chủ TK: ADMIN</p>
+            
+            <div className="mt-6 bg-amber-50 border border-amber-100 rounded-xl p-3">
+              <p className="text-xs text-amber-800 font-medium">
+                🙏 Cảm ơn sự ủng hộ của bạn!
+              </p>
             </div>
           </div>
         </div>

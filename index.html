@@ -68,69 +68,8 @@
         }
     </script>
 
-    <style>
-        body, html, #root { 
-            height: 100%; margin: 0; padding: 0; overflow: hidden; 
-            background: #0f172a; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            -webkit-tap-highlight-color: transparent;
-        }
-        .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
-        .map-container { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
-        
-        /* Enhanced Bottom Sheet with smooth swipe */
-        .bottom-sheet { 
-            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            touch-action: pan-y;
-            user-select: none;
-        }
-        .bottom-sheet.dragging {
-            transition: none;
-        }
-        .bottom-sheet-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.4);
-            transition: opacity 0.3s;
-            z-index: 99;
-        }
-        
-        .scrollbar-hide::-webkit-scrollbar { display: none; }
-        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-        
-        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        .animate-slide-up { animation: slideUp 0.3s ease-out forwards; }
-        
-        @keyframes spin { to { transform: rotate(360deg); } }
-        
-        /* Search Bar Style */
-        /* Mobile adjustment for Map controls */
-        .maplibregl-ctrl-bottom-right { bottom: 80px !important; }
-        
-        /* Dimension Label Styles (inspired by old project) */
-        .dimension-label-container {
-            pointer-events: none;
-            z-index: 1000;
-            position: absolute;
-            transform: translate(-50%, -50%);
-        }
-        
-        .dimension-label {
-            background: none !important;
-            padding: 0;
-            font-size: 12px;
-            font-weight: bold;
-            color: #111;
-            text-shadow: 1px 1px 2px white;
-            white-space: nowrap;
-        }
-        
-        /* Responsive: Smaller labels on mobile */
-        @media (max-width: 768px) {
-            .dimension-label {
-                font-size: 10px;
-            }
-        }
-    </style>
+    <!-- Main Application Styles (Refactored) -->
+    <link rel="stylesheet" href="/src/styles/main.css" />
 </head>
 <body>
     <div id="root"></div>

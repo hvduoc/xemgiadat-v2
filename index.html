@@ -943,6 +943,19 @@
                         'circle-stroke-color': '#ffffff'
                     }
                 });
+
+                // Invisible hitbox layer for better click detection (16px = 6px visual + 10px extra)
+                map.addLayer({
+                    id: 'user-listings-points-hitbox',
+                    type: 'circle',
+                    source: LISTINGS_SOURCE_ID,
+                    filter: ['!', ['has', 'point_count']],
+                    paint: {
+                        'circle-color': 'transparent',
+                        'circle-radius': 16,
+                        'circle-opacity': 0
+                    }
+                });
             };
 
             const refreshListings = async (map, forceRefresh = false) => {
@@ -1031,7 +1044,9 @@
                                     userName,
                                     phone,
                                     note: data.note || '',
-                                    status: data.status || 'approved'
+                                    status: data.status || 'approved',
+                                    createdAt: data.createdAt || null,
+                                    viewCount: data.viewCount || 0
                                 }
                             };
                         } catch (err) {
@@ -1251,7 +1266,8 @@
                     e.originalEvent.stopPropagation();
                 });
 
-                map.on('click', LISTINGS_LAYER_POINTS, (e) => {
+                // Click handler for hitbox layer (better click detection)
+                map.on('click', 'user-listings-points-hitbox', (e) => {
                     console.log('[Listings] Point clicked!', e.features?.[0]);
                     
                     // Auto-close search dropdown
@@ -1286,8 +1302,18 @@
                         phone: props.phone || '',
                         note: props.note || '',
                         status: props.status || 'approved',
-                        coordinates: [coords[0], coords[1]]
+                        coordinates: [coords[0], coords[1]],
+                        createdAt: props.createdAt || null,
+                        viewCount: props.viewCount || 0
                     };
+
+                    // Smooth flyTo animation to the listing point
+                    map.flyTo({
+                        center: coords,
+                        zoom: 18.5,
+                        duration: 1500,
+                        essential: true
+                    });
 
                     // Show listing details in side panel
                     setSelectedListing(listingData);
@@ -1396,10 +1422,11 @@
                     map.on('mouseleave', LISTINGS_LAYER_CLUSTERS, () => {
                         map.getCanvas().style.cursor = '';
                     });
-                    map.on('mouseenter', LISTINGS_LAYER_POINTS, () => {
+                    // Use hitbox layer for better pointer detection
+                    map.on('mouseenter', 'user-listings-points-hitbox', () => {
                         map.getCanvas().style.cursor = 'pointer';
                     });
-                    map.on('mouseleave', LISTINGS_LAYER_POINTS, () => {
+                    map.on('mouseleave', 'user-listings-points-hitbox', () => {
                         map.getCanvas().style.cursor = '';
                     });
                 
@@ -2215,6 +2242,43 @@
                                                             (selectedListing.priceValue / 1000000000).toFixed(1) + 'B' : 
                                                             'Liên hệ'
                                                         }
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-2 gap-2 mb-3">
+                                                <div className="bg-purple-50 p-3 rounded-lg border border-purple-100">
+                                                    <p className="text-[8px] font-bold text-purple-600 uppercase tracking-widest mb-1">Ngày đăng</p>
+                                                    <p className="text-xs font-black text-slate-800">
+                                                        {selectedListing.createdAt ? 
+                                                          (() => {
+                                                              try {
+                                                                  // Handle Firebase Timestamp
+                                                                  const date = selectedListing.createdAt.toDate ? 
+                                                                      selectedListing.createdAt.toDate() : 
+                                                                      new Date(selectedListing.createdAt);
+                                                                  const now = new Date();
+                                                                  const diffTime = Math.abs(now - date);
+                                                                  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                                                                  
+                                                                  if (diffDays === 0) return 'Hôm nay';
+                                                                  if (diffDays === 1) return 'Hôm qua';
+                                                                  if (diffDays < 7) return `${diffDays} ngày trước`;
+                                                                  if (diffDays < 30) return `${Math.floor(diffDays / 7)} tuần trước`;
+                                                                  if (diffDays < 365) return `${Math.floor(diffDays / 30)} tháng trước`;
+                                                                  return date.toLocaleDateString('vi-VN');
+                                                              } catch (e) {
+                                                                  return 'N/A';
+                                                              }
+                                                          })() : 
+                                                          'N/A'
+                                                        }
+                                                    </p>
+                                                </div>
+                                                <div className="bg-orange-50 p-3 rounded-lg border border-orange-100">
+                                                    <p className="text-[8px] font-bold text-orange-600 uppercase tracking-widest mb-1">Lượt xem</p>
+                                                    <p className="text-base font-black text-slate-800">
+                                                        {selectedListing.viewCount || 0}
                                                     </p>
                                                 </div>
                                             </div>

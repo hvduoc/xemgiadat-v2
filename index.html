@@ -362,66 +362,81 @@
         };
 
         /**
-         * 4. SEARCH SERVICE (Inline Implementation - Using search_index.json)
+         * 4. SEARCH SERVICE (Inline Implementation)
          */
         window.SearchService = class SearchService {
             constructor() {
                 this.searchModule = new window.SearchModule();
-                this.searchIndex = null;
-                this.indexLoadPromise = this.loadSearchIndex();
+                this.featureCache = new Map();
+                this.lastCacheUpdate = 0;
             }
 
-            async loadSearchIndex() {
-                if (this.searchIndex) return;
+            updateCache(map) {
+                if (!map) return;
                 
                 try {
-                    const response = await fetch('./data/search_index.json');
-                    if (!response.ok) {
-                        throw new Error(`Failed to load search index: ${response.statusText}`);
+                    const features = map.queryRenderedFeatures({
+                        layers: ['parcels-fill-clickable']
+                    });
+
+                    if (features && features.length > 0) {
+                        features.forEach(f => {
+                            const props = f.properties || {};
+                            const id = f.id || props.OBJECTID;
+                            const normalized = normalizeParcelProps(props);
+                            
+                            if (id && normalized.so_thua && normalized.so_to) {
+                                let coordinates = [108.2022, 16.0544];
+                                if (f.geometry?.type === 'Polygon' && f.geometry.coordinates?.[0]?.[0]) {
+                                    const coords = f.geometry.coordinates[0];
+                                    const lngs = coords.map(c => c[0]);
+                                    const lats = coords.map(c => c[1]);
+                                    coordinates = [
+                                        (Math.min(...lngs) + Math.max(...lngs)) / 2,
+                                        (Math.min(...lats) + Math.max(...lats)) / 2
+                                    ];
+                                }
+
+                                this.featureCache.set(id, {
+                                    id: id,
+                                    so_thua: normalized.so_thua,
+                                    so_to: normalized.so_to,
+                                    dien_tich: normalized.dien_tich,
+                                    muc_dich: normalized.muc_dich,
+                                    ma_xa: normalized.ma_xa,
+                                    dia_chi: normalized.dia_chi,
+                                    object_id: normalized.object_id,
+                                    coordinates
+                                });
+                            }
+                        });
+                        
+                        this.lastCacheUpdate = Date.now();
+                        console.log(`[Cache] Updated: ${this.featureCache.size} features`);
                     }
-                    
-                    const data = await response.json();
-                    this.searchIndex = new Map();
-                    
-                    // Build map for quick lookup
-                    for (const [key, value] of Object.entries(data)) {
-                        if (typeof value === 'object' && value !== null) {
-                            const mapKey = `${value.so_to}:${value.so_thua}`;
-                            this.searchIndex.set(mapKey, {
-                                id: value.id || mapKey,
-                                so_thua: value.so_thua || '',
-                                so_to: value.so_to || '',
-                                dien_tich: parseFloat(value.dien_tich || 0),
-                                muc_dich: value.muc_dich || '',
-                                ma_xa: value.ma_xa || '',
-                                dia_chi: value.dia_chi !== 'Null' ? value.dia_chi : 'TP. Đà Nẵng',
-                                coordinates: value.coordinates || [108.2022, 16.0544]
-                            });
-                        }
-                    }
-                    
-                    console.log(`[Search Index] Loaded: ${this.searchIndex.size} parcels`);
                 } catch (err) {
-                    console.error('[Search Index] Failed to load:', err);
-                    this.searchIndex = new Map();
+                    console.error('[Cache] Update error:', err);
                 }
             }
 
             async searchParcels(query) {
-                if (!query) return [];
-                
-                // Wait for index to load
-                await this.indexLoadPromise;
-                
-                if (!this.searchIndex || this.searchIndex.size === 0) {
-                    console.warn('[Search] Index not loaded');
-                    return [];
-                }
+                const map = window.MapController.getMap();
+                if (!query || !map) return [];
                 
                 try {
-                    const parcels = Array.from(this.searchIndex.values());
+                    if (this.featureCache.size === 0 || Date.now() - this.lastCacheUpdate > 5000) {
+                        this.updateCache(map);
+                    }
+
+                    const parcels = Array.from(this.featureCache.values());
+
+                    if (parcels.length === 0) {
+                        console.warn('[Search] Cache trống. Hãy zoom vào khu vực Đà Nẵng và thử lại.');
+                        return [];
+                    }
+
                     const results = this.searchModule.search(query, parcels);
-                    console.log(`[Search] "${query}" → ${results.length} kết quả`);
+                    console.log(`[Search] "${query}" → ${results.length} kết quả từ ${parcels.length} features`);
                     return results.map(r => r.parcel);
                 } catch (err) {
                     console.error('[Search] Error:', err);

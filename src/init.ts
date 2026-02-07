@@ -1,6 +1,7 @@
 /**
- * XemGiaDat V2 - Initialization Script
- * Bootstraps the application with required utilities and configurations
+ * XemGiaDat V2 - Module Orchestrator
+ * Coordinates initialization of CDN tracking, location bypass, and Firebase configuration.
+ * This TypeScript module serves as a bridge between ES6 modules for future use.
  */
 
 import { initCDNTracker } from './utils/cdnTracker';

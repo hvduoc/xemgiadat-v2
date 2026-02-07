@@ -227,11 +227,11 @@ interface ListingData {
 ## 7. Deployment Notes
 
 ### Production Checklist
-- [x] Update Zalo phone number (currently placeholder: 0123456789)
-- [x] Replace QR code placeholder with real image
-- [x] Add actual bank account details
-- [x] Test all links and deep links
-- [x] Verify advertising banner ready for content
+- [ ] Update Zalo phone number (currently placeholder: 0123456789)
+- [ ] Replace QR code placeholder with real image
+- [ ] Add actual bank account details
+- [ ] Test all links and deep links
+- [ ] Verify advertising banner ready for content
 
 ### Configuration Variables
 To update before production:

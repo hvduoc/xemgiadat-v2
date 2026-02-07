@@ -35,6 +35,6 @@ declare global {
     note: string;
     status: string;
     coordinates: [number, number];
-    createdAt?: any; // Firestore Timestamp or Unix timestamp
+    createdAt?: Date | number | { toDate(): Date }; // Firestore Timestamp, Unix timestamp, or Date
   }
 }

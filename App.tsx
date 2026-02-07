@@ -39,6 +39,13 @@ const App = () => {
     MapController.setInstance(instance);
     return instance;
   }, []);
+  
+  // Configuration constants for monetization features
+  const ZALO_PHONE = '0123456789'; // TODO: Replace with actual Zalo phone number
+  const BANK_ACCOUNT = '0123456789'; // TODO: Replace with actual bank account
+  const BANK_NAME = 'VCB';
+  const BANK_HOLDER = 'ADMIN'; // TODO: Replace with actual account holder name
+  
     const [searchService, setSearchService] = useState<any>(null);
   
   const [selectedParcel, setSelectedParcel] = useState(null as ParcelData | null);
@@ -274,7 +281,7 @@ const App = () => {
   const handleVIPService = (service: string) => {
     const item = selectedParcel || selectedListing;
     const location = item ? `Tờ ${item.so_to}, Thửa ${item.so_thua}` : 'Vị trí chưa xác định';
-    const zaloLink = `https://zalo.me/0123456789?text=${encodeURIComponent(`Xin chào! Tôi muốn sử dụng dịch vụ: ${service} cho ${location}`)}`;
+    const zaloLink = `https://zalo.me/${ZALO_PHONE}?text=${encodeURIComponent(`Xin chào! Tôi muốn sử dụng dịch vụ: ${service} cho ${location}`)}`;
     window.open(zaloLink, '_blank');
     setShowVIPModal(false);
   };
@@ -594,28 +601,30 @@ const App = () => {
               {view === 'listing-detail' && selectedListing && (
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
                   {/* Status Badges */}
-                  <div className="flex gap-2 mb-4 flex-wrap">
-                    {getStatusBadges().map((badge, i) => (
-                      <span 
-                        key={i}
-                        className={`px-3 py-1 rounded-full text-xs font-bold backdrop-blur-sm
-                          ${badge.includes('Giá tốt') || badge.includes('Hợp lý') ? 'bg-green-100 text-green-700 border border-green-200' :
-                            badge.includes('Cao cấp') || badge.includes('Hạng sang') ? 'bg-purple-100 text-purple-700 border border-purple-200' :
-                            badge.includes('Mới đăng') ? 'bg-blue-100 text-blue-700 border border-blue-200' :
-                            badge.includes('Đã xác thực') ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
-                            'bg-slate-100 text-slate-700 border border-slate-200'}
-                        `}
-                      >
-                        {badge}
-                      </span>
-                    ))}
-                    {/* Old Listing Badge */}
-                    {selectedListing.createdAt && ((window as any).DateFormatter?.isOldListing(selectedListing.createdAt)) && (
-                      <span className="px-3 py-1 rounded-full text-xs font-bold backdrop-blur-sm bg-gray-100 text-gray-600 border border-gray-300">
-                        ⏳ Tin cũ - Cần xác thực lại
-                      </span>
-                    )}
-                  </div>
+                  {(getStatusBadges().length > 0 || (selectedListing.createdAt && ((window as any).DateFormatter?.isOldListing(selectedListing.createdAt)))) && (
+                    <div className="flex gap-2 mb-4 flex-wrap">
+                      {getStatusBadges().map((badge, i) => (
+                        <span 
+                          key={i}
+                          className={`px-3 py-1 rounded-full text-xs font-bold backdrop-blur-sm
+                            ${badge.includes('Giá tốt') || badge.includes('Hợp lý') ? 'bg-green-100 text-green-700 border border-green-200' :
+                              badge.includes('Cao cấp') || badge.includes('Hạng sang') ? 'bg-purple-100 text-purple-700 border border-purple-200' :
+                              badge.includes('Mới đăng') ? 'bg-blue-100 text-blue-700 border border-blue-200' :
+                              badge.includes('Đã xác thực') ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
+                              'bg-slate-100 text-slate-700 border border-slate-200'}
+                          `}
+                        >
+                          {badge}
+                        </span>
+                      ))}
+                      {/* Old Listing Badge */}
+                      {selectedListing.createdAt && ((window as any).DateFormatter?.isOldListing(selectedListing.createdAt)) && (
+                        <span className="px-3 py-1 rounded-full text-xs font-bold backdrop-blur-sm bg-gray-100 text-gray-600 border border-gray-300">
+                          ⏳ Tin cũ - Cần xác thực lại
+                        </span>
+                      )}
+                    </div>
+                  )}
 
                   <div className="flex justify-between items-start mb-6">
                     <div>
@@ -855,8 +864,8 @@ const App = () => {
             </div>
             
             <p className="text-xs text-slate-500 mb-2">Quét mã QR để gửi qua Momo/Banking</p>
-            <p className="text-xs font-bold text-slate-700">Số tài khoản: 0123456789</p>
-            <p className="text-xs text-slate-600">Ngân hàng: VCB - Chủ TK: ADMIN</p>
+            <p className="text-xs font-bold text-slate-700">Số tài khoản: {BANK_ACCOUNT}</p>
+            <p className="text-xs text-slate-600">Ngân hàng: {BANK_NAME} - Chủ TK: {BANK_HOLDER}</p>
             
             <div className="mt-6 bg-amber-50 border border-amber-100 rounded-xl p-3">
               <p className="text-xs text-amber-800 font-medium">

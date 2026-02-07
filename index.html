@@ -901,6 +901,9 @@
             // Cache for listings
             const listingsCache = useRef({ data: null, timestamp: 0 });
             const CACHE_DURATION_MS = 5 * 60 * 1000; // 5 minutes
+            
+            // Global flag to prevent click-through from listings to parcels
+            const isListingInteractionActive = useRef(false);
 
             const ensureListingsLayers = (map) => {
                 if (!map || map.getSource(LISTINGS_SOURCE_ID)) return;
@@ -1189,7 +1192,9 @@
                                 type: 'raster', 
                                 tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], 
                                 tileSize: 256, 
-                                attribution: '© OpenStreetMap contributors' 
+                                attribution: '© OpenStreetMap contributors',
+                                // Fix CORS policy error
+                                crossOrigin: 'anonymous'
                             },
                             'parcels': {
                                 type: 'vector',
@@ -1253,6 +1258,9 @@
                     const source = map.getSource(LISTINGS_SOURCE_ID);
                     if (!source || clusterId === undefined) return;
 
+                    // Set the flag to prevent parcel click
+                    isListingInteractionActive.current = true;
+
                     source.getClusterExpansionZoom(clusterId, (err, zoom) => {
                         if (err) return;
                         map.easeTo({
@@ -1268,6 +1276,9 @@
                 // Click handler for hitbox layer (better click detection)
                 map.on('click', 'user-listings-points-hitbox', (e) => {
                     console.log('[Listings] Point clicked!', e.features?.[0]);
+                    
+                    // Set the flag to prevent parcel click
+                    isListingInteractionActive.current = true;
                     
                     // Auto-close search dropdown
                     setSearchResults([]);
@@ -1313,6 +1324,37 @@
                         duration: 1500,
                         essential: true
                     });
+                    
+                    // UI/UX Enhancement: Temporarily hide other listing icons for focus effect
+                    // Hide other listings for 2 seconds to reduce visual clutter
+                    if (map.getLayer('user-listings-points')) {
+                        map.setLayoutProperty('user-listings-points', 'visibility', 'none');
+                    }
+                    if (map.getLayer('user-listings-points-hitbox')) {
+                        map.setLayoutProperty('user-listings-points-hitbox', 'visibility', 'none');
+                    }
+                    if (map.getLayer(LISTINGS_LAYER_CLUSTERS)) {
+                        map.setLayoutProperty(LISTINGS_LAYER_CLUSTERS, 'visibility', 'none');
+                    }
+                    if (map.getLayer(LISTINGS_LAYER_COUNT)) {
+                        map.setLayoutProperty(LISTINGS_LAYER_COUNT, 'visibility', 'none');
+                    }
+                    
+                    // Restore visibility after 2 seconds
+                    setTimeout(() => {
+                        if (map.getLayer('user-listings-points')) {
+                            map.setLayoutProperty('user-listings-points', 'visibility', 'visible');
+                        }
+                        if (map.getLayer('user-listings-points-hitbox')) {
+                            map.setLayoutProperty('user-listings-points-hitbox', 'visibility', 'visible');
+                        }
+                        if (map.getLayer(LISTINGS_LAYER_CLUSTERS)) {
+                            map.setLayoutProperty(LISTINGS_LAYER_CLUSTERS, 'visibility', 'visible');
+                        }
+                        if (map.getLayer(LISTINGS_LAYER_COUNT)) {
+                            map.setLayoutProperty(LISTINGS_LAYER_COUNT, 'visibility', 'visible');
+                        }
+                    }, 2000);
 
                     // Show listing details in side panel
                     setSelectedListing(listingData);
@@ -1327,6 +1369,13 @@
                 
                 // PRIORITY 2: Parcel click handler (comes after listings)
                 map.on('click', 'parcels-fill-clickable', (e) => {
+                    // Check if a listing interaction is active - prevent click-through
+                    if (isListingInteractionActive.current) {
+                        console.log('[Click] Parcel click blocked due to active listing interaction');
+                        isListingInteractionActive.current = false;
+                        return;
+                    }
+                    
                     if (!e.features?.[0]) return;
                     
                     // Auto-close search dropdown when parcel is selected
@@ -1593,7 +1642,7 @@
             
             // Haptic feedback simulation
             const triggerHaptic = (type) => {
-                const durations = { light: 10, medium: 20, heavy: 30 };
+                const durations = { light: 10, medium: 20, heavy: 50 };
                 if ('vibrate' in navigator) {
                     navigator.vibrate(durations[type] || 20);
                 }

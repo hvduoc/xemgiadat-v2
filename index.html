@@ -1330,55 +1330,92 @@
                                         essential: true
                                     });
 
-                                    if (deepLink.soTo && deepLink.soThua) {
-                                        setTimeout(async () => {
-                                            try {
-                                                if (searchServiceRef.current) {
-                                                    searchServiceRef.current.updateCache(map);
-                                                }
-
-                                                // Query the feature at the shared location
-                                                const point = map.project([deepLink.lng, deepLink.lat]);
-                                                const features = map.queryRenderedFeatures(point, {
-                                                    layers: ['parcels-fill-clickable']
-                                                });
-
-                                                if (features && features.length > 0) {
-                                                    const clickedFeature = features[0];
-                                                    const props = clickedFeature.properties || {};
-                                                    const normalized = normalizeParcelProps(props);
-
-                                                    // Highlight parcel
-                                                    const objectId = props.OBJECTID;
-                                                    if (objectId !== undefined && objectId !== null) {
-                                                        map.setFilter('parcels-highlight', ['==', 'OBJECTID', objectId]);
-                                                        map.setFilter('parcels-highlight-fill', ['==', 'OBJECTID', objectId]);
-                                                    }
-
-                                                    // Draw dimensions
-                                                    drawDimensions(clickedFeature, map);
-
-                                                    // Set selected state
-                                                    setSelected({
-                                                        id: normalized.object_id || '',
-                                                        so_thua: normalized.so_thua,
-                                                        so_to: normalized.so_to,
-                                                        dien_tich: normalized.dien_tich,
-                                                        muc_dich: normalized.muc_dich,
-                                                        dia_chi: normalized.dia_chi,
-                                                        ma_xa: normalized.ma_xa,
-                                                        coordinates: [deepLink.lng, deepLink.lat]
-                                                    });
-                                                    setView('info');
-                                                    console.log('[DeepLink] ✅ Parcel selected from shared link');
-                                                } else {
-                                                    console.warn('[DeepLink] No parcel found at shared coordinates');
-                                                }
-                                            } catch (err) {
-                                                console.warn('[DeepLink] Parcel lookup failed:', err);
+                                    // NEW LOGIC: Wait for map.once('idle') to ensure Vector Tiles are loaded
+                                    map.once('idle', async () => {
+                                        try {
+                                            if (searchServiceRef.current) {
+                                                searchServiceRef.current.updateCache(map);
                                             }
-                                        }, 2000);
-                                    }
+
+                                            // Query the feature at the shared location
+                                            const point = map.project([deepLink.lng, deepLink.lat]);
+                                            const features = map.queryRenderedFeatures(point, {
+                                                layers: ['parcels-fill-clickable']
+                                            });
+
+                                            if (features && features.length > 0) {
+                                                const clickedFeature = features[0];
+                                                const props = clickedFeature.properties || {};
+                                                const normalized = normalizeParcelProps(props);
+
+                                                // Highlight parcel
+                                                const objectId = props.OBJECTID;
+                                                if (objectId !== undefined && objectId !== null) {
+                                                    map.setFilter('parcels-highlight', ['==', 'OBJECTID', objectId]);
+                                                    map.setFilter('parcels-highlight-fill', ['==', 'OBJECTID', objectId]);
+                                                }
+
+                                                // Draw dimensions
+                                                drawDimensions(clickedFeature, map);
+
+                                                // Set selected state
+                                                setSelected({
+                                                    id: normalized.object_id || '',
+                                                    so_thua: normalized.so_thua,
+                                                    so_to: normalized.so_to,
+                                                    dien_tich: normalized.dien_tich,
+                                                    muc_dich: normalized.muc_dich,
+                                                    dia_chi: normalized.dia_chi,
+                                                    ma_xa: normalized.ma_xa,
+                                                    coordinates: [deepLink.lng, deepLink.lat]
+                                                });
+                                                setView('info');
+                                                console.log('[DeepLink] ✅ Parcel selected from shared link');
+                                            } else {
+                                                // FALLBACK: Place a red marker if Vector ID not found
+                                                console.warn('[DeepLink] No parcel found at shared coordinates - placing fallback marker');
+                                                
+                                                // Create red marker
+                                                const fallbackMarker = new maplibregl.Marker({ color: '#ef4444' })
+                                                    .setLngLat([deepLink.lng, deepLink.lat])
+                                                    .addTo(map);
+                                                
+                                                // Show bottom sheet with coordinate info
+                                                setSelected({
+                                                    id: 'fallback-' + Date.now(),
+                                                    so_thua: 'N/A',
+                                                    so_to: 'N/A',
+                                                    dien_tich: 'N/A',
+                                                    muc_dich: 'Chưa xác định',
+                                                    dia_chi: `Tọa độ: ${deepLink.lat.toFixed(6)}, ${deepLink.lng.toFixed(6)}`,
+                                                    ma_xa: '',
+                                                    coordinates: [deepLink.lng, deepLink.lat],
+                                                    isFallback: true
+                                                });
+                                                setView('info');
+                                            }
+                                        } catch (err) {
+                                            console.warn('[DeepLink] Parcel lookup failed:', err);
+                                            
+                                            // FALLBACK on error: Place red marker
+                                            const fallbackMarker = new maplibregl.Marker({ color: '#ef4444' })
+                                                .setLngLat([deepLink.lng, deepLink.lat])
+                                                .addTo(map);
+                                            
+                                            setSelected({
+                                                id: 'fallback-' + Date.now(),
+                                                so_thua: 'N/A',
+                                                so_to: 'N/A',
+                                                dien_tich: 'N/A',
+                                                muc_dich: 'Lỗi tải dữ liệu',
+                                                dia_chi: `Tọa độ: ${deepLink.lat.toFixed(6)}, ${deepLink.lng.toFixed(6)}`,
+                                                ma_xa: '',
+                                                coordinates: [deepLink.lng, deepLink.lat],
+                                                isFallback: true
+                                            });
+                                            setView('info');
+                                        }
+                                    });
                                 }
                 });
                 
@@ -2103,7 +2140,8 @@
                                                 </div>
                                             )}
 
-                                            <div className="grid grid-cols-3 gap-1.5">
+                                            {/* Primary Action Buttons */}
+                                            <div className="grid grid-cols-3 gap-1.5 mb-2">
                                                 <button 
                                                     onClick={() => {
                                                         triggerHaptic('medium');
@@ -2126,11 +2164,49 @@
                                                     <Icons.Share /> Chia
                                                 </button>
                                                 <button
-                                                    onClick={() => { triggerHaptic('light'); shareToPlatform('copy'); }}
+                                                    onClick={async () => { 
+                                                        triggerHaptic('light'); 
+                                                        const payload = buildSharePayload();
+                                                        const link = generateShareLink(payload);
+                                                        await copyToClipboard(link);
+                                                        // Show enhanced toast notification
+                                                        alert('✅ Đã sao chép! Kèm thông tin tóm tắt:\n\nThửa ' + selected.so_thua + ' - Tờ ' + selected.so_to + '\nDT: ' + selected.dien_tich + 'm²');
+                                                    }}
                                                     className="h-10 bg-slate-600 text-white rounded-lg font-bold text-xs flex items-center justify-center gap-1 transition-all active:scale-95"
                                                 >
                                                     <Icons.Copy /> Link
                                                 </button>
+                                            </div>
+                                            
+                                            {/* Secondary Action Buttons - Feature Parity with Listing */}
+                                            <div className="grid grid-cols-3 gap-1.5">
+                                                <a
+                                                    href={`https://www.google.com/maps/dir/?api=1&destination=${selected.coordinates[1]},${selected.coordinates[0]}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    onClick={() => triggerHaptic('medium')}
+                                                    className="h-10 bg-blue-600 text-white rounded-lg font-bold text-xs flex items-center justify-center gap-1 transition-all active:scale-95"
+                                                >
+                                                    <Icons.Navigation className="w-4 h-4" /> Chỉ đường
+                                                </a>
+                                                <button
+                                                    onClick={() => {
+                                                        setShowStreetView(true);
+                                                        triggerHaptic('medium');
+                                                    }}
+                                                    className="h-10 bg-amber-600 text-white rounded-lg font-bold text-xs flex items-center justify-center gap-1 transition-all active:scale-95"
+                                                >
+                                                    <Icons.Eye className="w-4 h-4" /> Thực tế
+                                                </button>
+                                                <a
+                                                    href={`https://www.google.com/maps/search/tiện+ích,+trường+học,+chợ/@${selected.coordinates[1]},${selected.coordinates[0]},15z`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    onClick={() => triggerHaptic('medium')}
+                                                    className="h-10 bg-green-600 text-white rounded-lg font-bold text-xs flex items-center justify-center gap-1 transition-all active:scale-95"
+                                                >
+                                                    <Icons.MapPin className="w-4 h-4" /> Tiện ích
+                                                </a>
                                             </div>
                                         </div>
                                     )}
@@ -2606,7 +2682,7 @@
                     )}
                     
                     {/* Street View Modal */}
-                    {showStreetView && selectedListing && (
+                    {showStreetView && (selectedListing || selected) && (
                         <div className="fixed inset-0 z-[200] bg-black/50 flex items-center justify-center p-4">
                             <div className="w-full max-w-4xl bg-white rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
                                 <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-gradient-to-r from-amber-50 to-orange-50">
@@ -2630,13 +2706,13 @@
                                         loading="lazy"
                                         allowFullScreen
                                         referrerPolicy="no-referrer-when-downgrade"
-                                        src={`https://www.google.com/maps/embed/v1/streetview?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&location=${selectedListing.coordinates[1]},${selectedListing.coordinates[0]}&heading=0&pitch=0&fov=90`}
+                                        src={`https://www.google.com/maps/embed/v1/streetview?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&location=${(selectedListing?.coordinates || selected?.coordinates)[1]},${(selectedListing?.coordinates || selected?.coordinates)[0]}&heading=0&pitch=0&fov=90`}
                                     ></iframe>
                                 </div>
                                 
                                 <div className="p-4 bg-slate-50 border-t border-slate-100">
                                     <p className="text-sm text-slate-600 text-center">
-                                        📍 Tọa độ: {selectedListing.coordinates[1].toFixed(6)}, {selectedListing.coordinates[0].toFixed(6)}
+                                        📍 Tọa độ: {(selectedListing?.coordinates || selected?.coordinates)[1].toFixed(6)}, {(selectedListing?.coordinates || selected?.coordinates)[0].toFixed(6)}
                                     </p>
                                 </div>
                             </div>

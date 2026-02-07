@@ -2258,14 +2258,29 @@
                                                                       selectedListing.createdAt.toDate() : 
                                                                       new Date(selectedListing.createdAt);
                                                                   const now = new Date();
-                                                                  const diffTime = Math.abs(now - date);
+                                                                  const diffTime = now - date;
+                                                                  
+                                                                  // Handle future dates
+                                                                  if (diffTime < 0) return 'Mới đăng';
+                                                                  
                                                                   const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
                                                                   
                                                                   if (diffDays === 0) return 'Hôm nay';
                                                                   if (diffDays === 1) return 'Hôm qua';
                                                                   if (diffDays < 7) return `${diffDays} ngày trước`;
-                                                                  if (diffDays < 30) return `${Math.floor(diffDays / 7)} tuần trước`;
-                                                                  if (diffDays < 365) return `${Math.floor(diffDays / 30)} tháng trước`;
+                                                                  if (diffDays < 28) return `${Math.floor(diffDays / 7)} tuần trước`;
+                                                                  
+                                                                  // Calculate actual month difference for longer periods
+                                                                  const yearDiff = now.getFullYear() - date.getFullYear();
+                                                                  const monthDiff = now.getMonth() - date.getMonth();
+                                                                  let totalMonths = yearDiff * 12 + monthDiff;
+                                                                  
+                                                                  // Adjust if day hasn't been reached yet in current month
+                                                                  if (now.getDate() < date.getDate()) {
+                                                                      totalMonths--;
+                                                                  }
+                                                                  
+                                                                  if (totalMonths > 0 && totalMonths < 12) return `${totalMonths} tháng trước`;
                                                                   return date.toLocaleDateString('vi-VN');
                                                               } catch (e) {
                                                                   return 'N/A';
@@ -2277,7 +2292,7 @@
                                                 </div>
                                                 <div className="bg-orange-50 p-3 rounded-lg border border-orange-100">
                                                     <p className="text-[8px] font-bold text-orange-600 uppercase tracking-widest mb-1">Lượt xem</p>
-                                                    <p className="text-base font-black text-slate-800">
+                                                    <p className="text-xs font-black text-slate-800">
                                                         {selectedListing.viewCount || 0}
                                                     </p>
                                                 </div>

@@ -1399,6 +1399,8 @@
                     // Increment view count in Firebase
                     incrementViewCount(listingData.id).catch(err => {
                         console.warn('[ViewCount] Failed to increment:', err);
+                        // Non-critical: View count increment failure shouldn't block user experience
+                        // Tracked for analytics but doesn't affect core functionality
                     });
                     
                     // CRITICAL: Prevent parcel click from firing
@@ -1698,7 +1700,7 @@
                 const currentY = e.touches[0].clientY;
                 const diff = currentY - dragStartY.current;
                 
-                // Only allow dragging down
+                // Only allow dragging down to dismiss the sheet; prevent upward dragging beyond initial position
                 if (diff > 0) {
                     setSheetTranslateY(dragStartTranslate.current + diff);
                 }
@@ -1762,6 +1764,12 @@
                     if (!firebaseInit) throw new Error('Firebase not ready');
                     
                     const { db } = await firebaseInit();
+                    
+                    // Safe access to FieldValue with fallback
+                    if (!window.firebase?.firestore?.FieldValue) {
+                        throw new Error('Firebase FieldValue not available');
+                    }
+                    
                     const increment = window.firebase.firestore.FieldValue.increment(1);
                     
                     await db.collection('listings').doc(listingId).update({
@@ -1772,6 +1780,18 @@
                 } catch (err) {
                     console.error('[ViewCount] Failed to increment:', err);
                     throw err;
+                }
+            };
+            
+            // AI placeholder response constant
+            const AI_PLACEHOLDER_RESPONSE = '🚧 Tính năng đang trong giai đoạn phát triển.\n\nHệ thống AI sẽ kết nối với NotebookLM API để cung cấp câu trả lời chính xác về:\n• Luật Đất Đai 2024\n• Bảng giá đất 2026\n• Quy định về quyền sử dụng đất\n\nVui lòng quay lại sau!';
+            
+            // Handle AI query submission
+            const handleAIQuery = () => {
+                if (aiQuery.trim()) {
+                    // TODO: Replace with actual NotebookLM API call
+                    setAiResponse(AI_PLACEHOLDER_RESPONSE);
+                    triggerHaptic('medium');
                 }
             };
 
@@ -2699,22 +2719,14 @@
                                             onChange={(e) => setAiQuery(e.target.value)}
                                             onKeyPress={(e) => {
                                                 if (e.key === 'Enter' && aiQuery.trim()) {
-                                                    // Simulate AI response (to be connected to NotebookLM API)
-                                                    setAiResponse('🚧 Tính năng đang trong giai đoạn phát triển.\n\nHệ thống AI sẽ kết nối với NotebookLM API để cung cấp câu trả lời chính xác về:\n• Luật Đất Đai 2024\n• Bảng giá đất 2026\n• Quy định về quyền sử dụng đất\n\nVui lòng quay lại sau!');
-                                                    triggerHaptic('medium');
+                                                    handleAIQuery();
                                                 }
                                             }}
                                             placeholder="Hỏi về Luật Đất Đai, giá đất..."
                                             className="flex-1 px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
                                         />
                                         <button
-                                            onClick={() => {
-                                                if (aiQuery.trim()) {
-                                                    // Simulate AI response (to be connected to NotebookLM API)
-                                                    setAiResponse('🚧 Tính năng đang trong giai đoạn phát triển.\n\nHệ thống AI sẽ kết nối với NotebookLM API để cung cấp câu trả lời chính xác về:\n• Luật Đất Đai 2024\n• Bảng giá đất 2026\n• Quy định về quyền sử dụng đất\n\nVui lòng quay lại sau!');
-                                                    triggerHaptic('medium');
-                                                }
-                                            }}
+                                            onClick={handleAIQuery}
                                             className="px-6 py-3 rounded-xl font-bold text-white transition-all active:scale-95"
                                             style={{background: 'linear-gradient(135deg, #8b5cf6, #6366f1)'}}
                                         >

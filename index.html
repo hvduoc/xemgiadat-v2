@@ -14,8 +14,32 @@
     }
     </script>
     
+    <!-- Critical Initialization utilities (INLINED for reliability) -->
+    <script>
+    /**
+     * XemGiaDat V2 - Critical Initialization (Inlined)
+     * MUST be inline to ensure app reliability even if external files fail
+     */
+    (function() {
+      'use strict';
+
+      console.log('[INIT] XemGiaDat v2 initialization started (Vector Parcels mode)');
+
+      /**
+       * 1. CDN LOAD STATUS TRACKER
+       */
+      window.__CDN_LOAD_STATUS__ = {};
+      window.__trackCDN = function(name, success) {
+        window.__CDN_LOAD_STATUS__[name] = success;
+        console.log('[CDN] ' + name + ': ' + (success ? '✓ OK' : '✗ FAILED'));
+      };
+
+      console.log('[INIT] ✓ Critical utilities initialized inline');
+    })();
+    </script>
+    
     <!-- Initialization utilities (refactored) -->
-    <script src="/src/scripts/init.js"></script>
+    <script src="./src/scripts/init.js"></script>
     
     <!-- Core Libraries -->
     <link href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
@@ -64,7 +88,7 @@
     </script>
 
     <!-- Main Application Styles (Refactored) -->
-    <link rel="stylesheet" href="/src/styles/main.css" />
+    <link rel="stylesheet" href="./src/styles/main.css" />
 </head>
 <body>
     <div id="root"></div>
@@ -1370,7 +1394,7 @@
             
             // Load AI Knowledge Base
             useEffect(() => {
-                fetch('/data/land-law-2024.json')
+                fetch('./data/land-law-2024.json')
                     .then(res => res.json())
                     .then(data => {
                         setKnowledgeBase(data.knowledgeBase || []);

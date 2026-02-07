@@ -1,21 +1,24 @@
 /**
  * XemGiaDat V2 - Initialization Utilities
  * Browser-compatible standalone JavaScript (no imports/exports)
+ * NOTE: Critical CDN tracker functions are now inlined in index.html for reliability
  */
 
 (function() {
   'use strict';
 
-  console.log('[INIT] XemGiaDat v2 initialization started (Vector Parcels mode)');
+  console.log('[INIT] Extended utilities loading...');
 
   /**
-   * 1. CDN LOAD STATUS TRACKER
+   * 1. CDN LOAD STATUS TRACKER (Skip if already defined inline)
    */
-  window.__CDN_LOAD_STATUS__ = {};
-  window.__trackCDN = function(name, success) {
-    window.__CDN_LOAD_STATUS__[name] = success;
-    console.log('[CDN] ' + name + ': ' + (success ? '✓ OK' : '✗ FAILED'));
-  };
+  if (!window.__CDN_LOAD_STATUS__) {
+    window.__CDN_LOAD_STATUS__ = {};
+    window.__trackCDN = function(name, success) {
+      window.__CDN_LOAD_STATUS__[name] = success;
+      console.log('[CDN] ' + name + ': ' + (success ? '✓ OK' : '✗ FAILED'));
+    };
+  }
 
   /**
    * 2. SAFE LOCATION BYPASS

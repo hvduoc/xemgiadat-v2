@@ -37,7 +37,8 @@ window.SearchService = class SearchService {
       // Chuyển đổi features thành ParcelData
       const parcels: ParcelData[] = features.map((f: any) => {
         const props = f.properties || {};
-        // Lấy tọa độ trung tâm của polygon nếu có
+        
+        // --- LOGIC TÍNH TÂM POLYGON ---
         let coordinates: [number, number] = [108.2022, 16.0544]; // default
         
         if (f.geometry?.type === 'Polygon' && f.geometry.coordinates?.[0]?.[0]) {
@@ -50,14 +51,21 @@ window.SearchService = class SearchService {
           ];
         }
 
+        // --- CẬP NHẬT MAPPING PROPERTIES (FIX LỖI TÌM KIẾM) ---
         return {
           id: f.id || props.OBJECTID || props['Mã thửa đất'] || '',
-          so_thua: props['Số thửa'] || props.so_thua || '',
-          so_to: props['Số hiệu tờ bản đồ'] || props.so_to || '',
-          dien_tich: parseFloat(props['Diện tích'] || props.dien_tich || 0),
-          muc_dich: props['Ký hiệu mục đích sử dụng'] || props.muc_dich || '',
-          ma_xa: props['Mã xã'] || props.ma_xa || '',
-          dia_chi: props['Địa chỉ'] !== 'Null' ? props['Địa chỉ'] : 'TP. Đà Nẵng',
+          
+          // Ưu tiên lấy key tiếng Việt không dấu (từ log), ép kiểu về String để search chuẩn
+          so_thua: String(props['SoThuTuThua'] || props['Số thửa'] || props.so_thua || ''),
+          so_to: String(props['SoHieuToBanDo'] || props['Số hiệu tờ bản đồ'] || props.so_to || ''),
+          
+          dien_tich: parseFloat(props['DienTich'] || props['Diện tích'] || props.dien_tich || 0),
+          muc_dich: props['KyHieuMucDichSuDung'] || props['Ký hiệu mục đích sử dụng'] || props.muc_dich || '',
+          ma_xa: props['MaXa'] || props['Mã xã'] || props.ma_xa || '',
+          
+          // Xử lý địa chỉ: Ưu tiên DiaChi, fallback về props cũ
+          dia_chi: props['DiaChi'] || (props['Địa chỉ'] !== 'Null' ? props['Địa chỉ'] : 'TP. Đà Nẵng'),
+          
           coordinates
         };
       });
@@ -82,8 +90,9 @@ window.SearchService = class SearchService {
     if (!soTo || !soThua) return null;
     const results = await this.searchParcels(`${soTo} ${soThua}`);
 
+    // So sánh chuỗi (String) để đảm bảo chính xác
     const exact = results.find(p =>
-      p.so_to === soTo && p.so_thua === soThua
+      String(p.so_to) === String(soTo) && String(p.so_thua) === String(soThua)
     );
 
     const found = exact || (results.length > 0 ? results[0] : null);

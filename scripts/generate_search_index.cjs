@@ -1,0 +1,301 @@
+/**
+ * Script to generate search_index.json with coordinates
+ * 
+ * Purpose: Create a flat index mapping "soTo:soThua" → [lng, lat]
+ * This enables direct flyTo navigation without querying PMTiles
+ * 
+ * Input: PMTiles URL (danang_parcels_final.pmtiles)
+ * Output: data/search_index.json
+ * 
+ * Format:
+ * {
+ *   "version": "2.0",
+ *   "generated": "ISO timestamp",
+ *   "total_parcels": number,
+ *   "index": {
+ *     "soTo:soThua": [lng, lat],
+ *     ...
+ *   }
+ * }
+ */
+
+const fs = require('fs');
+
+// PMTiles Configuration
+const PMTILES_URL = 'https://xemgiadat.com/tiles/danang_parcels_final.pmtiles';
+
+/**
+ * Calculate centroid of a polygon
+ * @param {Array} coordinates - Polygon coordinates [[lng, lat], ...]
+ * @returns {Array} [lng, lat] - Centroid coordinates
+ */
+function calculateCentroid(coordinates) {
+  if (!coordinates || coordinates.length === 0) {
+    return [108.2022, 16.0544]; // Default Đà Nẵng coordinates
+  }
+  
+  // For polygon, take the exterior ring (first array)
+  const ring = Array.isArray(coordinates[0][0]) ? coordinates[0] : coordinates;
+  
+  let sumLng = 0;
+  let sumLat = 0;
+  let count = 0;
+  
+  for (const coord of ring) {
+    if (coord && coord.length >= 2) {
+      sumLng += coord[0];
+      sumLat += coord[1];
+      count++;
+    }
+  }
+  
+  if (count === 0) {
+    return [108.2022, 16.0544];
+  }
+  
+  return [
+    Math.round(sumLng / count * 1000000) / 1000000, // 6 decimal places
+    Math.round(sumLat / count * 1000000) / 1000000
+  ];
+}
+
+console.log('=== Generate Search Index Script ===');
+console.log('PMTiles URL:', PMTILES_URL);
+console.log('');
+
+// Check if we have an existing old index to migrate
+const oldIndexPath = './data/search_index.json';
+let oldIndex = null;
+
+try {
+  if (fs.existsSync(oldIndexPath)) {
+    console.log('Found existing search_index.json');
+    oldIndex = JSON.parse(fs.readFileSync(oldIndexPath, 'utf8'));
+    console.log(`- Total parcels in old index: ${oldIndex.total_parcels || 0}`);
+    console.log(`- Old format: nested digit tree`);
+    console.log('');
+  }
+} catch (err) {
+  console.error('Error reading old index:', err.message);
+}
+
+/**
+ * Since PMTiles requires browser APIs, we'll create a browser-based
+ * extraction script instead.
+ */
+
+console.log('Note: PMTiles extraction requires browser environment.');
+console.log('Creating browser-based extraction script...');
+console.log('');
+
+// Create a browser-compatible extraction script
+const browserScript = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>PMTiles Data Extractor</title>
+  <script src="https://unpkg.com/maplibre-gl@5.1.0/dist/maplibre-gl.js"></script>
+  <script type="module">
+    import { Protocol } from 'https://unpkg.com/pmtiles@4.0.0/dist/index.js';
+
+    const PMTILES_URL = '${PMTILES_URL}';
+    const SOURCE_LAYER = 'default';
+    
+    async function extractData() {
+      console.log('Starting PMTiles data extraction...');
+      
+      // Set up PMTiles protocol
+      const protocol = new Protocol();
+      maplibregl.addProtocol('pmtiles', (params, callback) => {
+        return protocol.tile(params, callback);
+      });
+      
+      // Create a hidden map
+      const container = document.createElement('div');
+      container.style.width = '100px';
+      container.style.height = '100px';
+      container.style.position = 'absolute';
+      container.style.top = '-1000px';
+      document.body.appendChild(container);
+      
+      const map = new maplibregl.Map({
+        container: container,
+        style: {
+          version: 8,
+          sources: {
+            'parcels': {
+              type: 'vector',
+              url: \`pmtiles://\${PMTILES_URL}\`,
+              minzoom: 10,
+              maxzoom: 20
+            }
+          },
+          layers: []
+        },
+        center: [108.2022, 16.0544],
+        zoom: 15
+      });
+      
+      return new Promise((resolve, reject) => {
+        map.on('load', () => {
+          console.log('Map loaded, extracting features...');
+          
+          // Wait for tiles to load
+          setTimeout(() => {
+            try {
+              const features = map.querySourceFeatures('parcels', {
+                sourceLayer: SOURCE_LAYER
+              });
+              
+              console.log(\`Found \${features.length} features\`);
+              
+              const index = {};
+              let processed = 0;
+              
+              for (const feature of features) {
+                const props = feature.properties || {};
+                
+                // Extract parcel ID
+                const soTo = String(props.SoHieuToBanDo || props['Số hiệu tờ bản đồ'] || props.so_to || '').trim();
+                const soThua = String(props.SoThuTuThua || props['Số thửa'] || props.so_thua || '').trim();
+                
+                if (!soTo || !soThua) continue;
+                
+                const key = \`\${soTo}:\${soThua}\`;
+                
+                // Calculate centroid
+                let centroid = [108.2022, 16.0544];
+                if (feature.geometry && feature.geometry.type === 'Polygon') {
+                  const coords = feature.geometry.coordinates[0];
+                  if (coords && coords.length > 0) {
+                    let sumLng = 0, sumLat = 0, count = 0;
+                    for (const c of coords) {
+                      sumLng += c[0];
+                      sumLat += c[1];
+                      count++;
+                    }
+                    if (count > 0) {
+                      centroid = [
+                        Math.round(sumLng / count * 1000000) / 1000000,
+                        Math.round(sumLat / count * 1000000) / 1000000
+                      ];
+                    }
+                  }
+                }
+                
+                index[key] = centroid;
+                processed++;
+              }
+              
+              console.log(\`Processed \${processed} parcels\`);
+              
+              const result = {
+                version: '2.0',
+                generated: new Date().toISOString(),
+                total_parcels: processed,
+                index: index
+              };
+              
+              resolve(result);
+            } catch (err) {
+              reject(err);
+            }
+          }, 5000); // Wait 5 seconds for tiles to load
+        });
+        
+        map.on('error', (e) => {
+          console.error('Map error:', e);
+          reject(e);
+        });
+      });
+    }
+    
+    // Run extraction and download result
+    extractData().then(data => {
+      console.log('Extraction complete!');
+      console.log('Total parcels:', data.total_parcels);
+      
+      // Create download link
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'search_index.json';
+      a.textContent = 'Download search_index.json';
+      a.style.fontSize = '24px';
+      a.style.padding = '20px';
+      a.style.display = 'block';
+      document.body.appendChild(a);
+      
+      // Also log to console for copy-paste
+      console.log('JSON Output (first 100 chars):');
+      console.log(JSON.stringify(data, null, 2).substring(0, 100) + '...');
+    }).catch(err => {
+      console.error('Extraction failed:', err);
+      document.body.innerHTML = '<h1>Error: ' + err.message + '</h1>';
+    });
+  </script>
+</head>
+<body>
+  <h1>Extracting data from PMTiles...</h1>
+  <p>Check console for progress. Download link will appear when complete.</p>
+</body>
+</html>
+`;
+
+// Write the browser script
+const browserScriptPath = './scripts/extract_pmtiles_browser.html';
+fs.writeFileSync(browserScriptPath, browserScript);
+console.log(`✓ Created browser extraction script: ${browserScriptPath}`);
+console.log('');
+
+// Create a fallback: generate from old index with placeholder coordinates
+if (oldIndex && oldIndex.index) {
+  console.log('Creating placeholder index from old data...');
+  console.log('(This will be replaced with real coordinates from PMTiles)');
+  
+  const newIndex = {
+    version: '2.0',
+    generated: new Date().toISOString(),
+    total_parcels: 0,
+    index: {}
+  };
+  
+  // Flatten the old nested structure
+  function flattenIndex(obj, path = []) {
+    if (Array.isArray(obj)) {
+      // This is a leaf - array of parcel IDs
+      for (const parcelId of obj) {
+        // Use placeholder coordinates for now
+        // Format: "soTo:soThua"
+        newIndex.index[parcelId] = [108.2022, 16.0544];
+        newIndex.total_parcels++;
+      }
+    } else if (typeof obj === 'object' && obj !== null) {
+      for (const key in obj) {
+        flattenIndex(obj[key], [...path, key]);
+      }
+    }
+  }
+  
+  flattenIndex(oldIndex.index);
+  
+  console.log(`✓ Created placeholder index with ${newIndex.total_parcels} parcels`);
+  console.log('  Note: All coordinates are placeholders [108.2022, 16.0544]');
+  console.log('');
+  
+  // Save placeholder index
+  const placeholderPath = './data/search_index_placeholder.json';
+  fs.writeFileSync(placeholderPath, JSON.stringify(newIndex, null, 2));
+  console.log(`✓ Saved to: ${placeholderPath}`);
+  console.log('');
+}
+
+console.log('=== Next Steps ===');
+console.log('');
+console.log('Since PMTiles requires a browser environment, we will:');
+console.log('  - Modify SearchService to extract and cache coordinates on first load');
+console.log('  - This provides automatic updates and simplifies deployment');
+console.log('');
+console.log('Alternative: Run scripts/extract_pmtiles_browser.html in a browser');
+console.log('  to generate the index manually');

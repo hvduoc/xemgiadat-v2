@@ -86,8 +86,8 @@ window.MapController = class MapController {
           },
           layers: [
             { id: 'osm', type: 'raster', source: 'osm', layout: { visibility: 'none' } },
-            { id: 'google-street', type: 'raster', source: 'google-street', layout: { visibility: 'visible' } },
-            { id: 'google-satellite', type: 'raster', source: 'google-satellite', layout: { visibility: 'none' } }
+            { id: 'google-street', type: 'raster', source: 'google-street', layout: { visibility: 'none' } },
+            { id: 'google-satellite', type: 'raster', source: 'google-satellite', layout: { visibility: 'visible' } }
           ]
         },
         center: initialView.lng && initialView.lat ? [initialView.lng, initialView.lat] : [108.2022, 16.0544],

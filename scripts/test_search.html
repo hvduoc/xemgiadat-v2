@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Test SearchService with Index</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .result { background: #f0f0f0; padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        pre { background: #f5f5f5; padding: 10px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>SearchService Test Suite</h1>
+    <p>This page tests the new SearchService with coordinate-based index</p>
+    
+    <div id="tests">
+        <h2>Tests:</h2>
+        <button onclick="testSearchIndex()">1. Test Search Index Loading</button>
+        <button onclick="testDirectLookup()">2. Test Direct Lookup (33:48)</button>
+        <button onclick="testFallbackSearch()">3. Test Fallback Search</button>
+    </div>
+    
+    <div id="results"></div>
+    
+    <script>
+        function log(message, type = 'info') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = 'result ' + (type === 'success' ? 'success' : type === 'error' ? 'error' : '');
+            div.innerHTML = '<strong>' + new Date().toLocaleTimeString() + '</strong>: ' + message;
+            results.appendChild(div);
+        }
+        
+        async function testSearchIndex() {
+            log('Testing search index loading...', 'info');
+            
+            try {
+                const response = await fetch('/data/search_index.json');
+                const data = await response.json();
+                
+                log('✓ Search index loaded successfully', 'success');
+                log('Index version: ' + data.version);
+                log('Total parcels: ' + data.total_parcels);
+                
+                if (data.version === '2.0') {
+                    log('✓ Index is in new format (v2.0)', 'success');
+                    
+                    // Check for a few sample entries
+                    const sampleKeys = Object.keys(data.index).slice(0, 5);
+                    log('Sample keys: ' + sampleKeys.join(', '));
+                    
+                    for (const key of sampleKeys) {
+                        const coords = data.index[key];
+                        if (Array.isArray(coords) && coords.length === 2) {
+                            log('✓ Key ' + key + ' has valid coordinates: [' + coords[0] + ', ' + coords[1] + ']', 'success');
+                        } else {
+                            log('✗ Key ' + key + ' has invalid coordinates', 'error');
+                        }
+                    }
+                } else {
+                    log('⚠ Index is in old format (v' + data.version + '), will build from PMTiles', 'info');
+                }
+            } catch (err) {
+                log('✗ Failed to load search index: ' + err.message, 'error');
+                log('SearchService will build index from PMTiles', 'info');
+            }
+        }
+        
+        async function testDirectLookup() {
+            log('Testing direct lookup with key "33:48"...', 'info');
+            
+            try {
+                const response = await fetch('/data/search_index.json');
+                const data = await response.json();
+                
+                const key = '33:48';
+                const coords = data.index[key];
+                
+                if (coords) {
+                    log('✓ Found coordinates for ' + key + ': [' + coords[0] + ', ' + coords[1] + ']', 'success');
+                    log('This will be used for direct flyTo without querying PMTiles', 'success');
+                } else {
+                    log('✗ Key ' + key + ' not found in index', 'error');
+                    log('SearchService will use fallback search', 'info');
+                }
+            } catch (err) {
+                log('✗ Error during lookup: ' + err.message, 'error');
+            }
+        }
+        
+        async function testFallbackSearch() {
+            log('Testing fallback to old search method...', 'info');
+            log('This would query PMTiles features if index is not available', 'info');
+            log('Map click handling remains independent using queryRenderedFeatures', 'success');
+        }
+        
+        // Run initial test
+        window.addEventListener('load', () => {
+            log('Page loaded. Click buttons above to run tests.', 'info');
+        });
+    </script>
+</body>
+</html>

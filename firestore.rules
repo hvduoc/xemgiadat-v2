@@ -65,11 +65,11 @@ service cloud.firestore {
       // Special case: Allow ANYONE (including unauthenticated users) to increment view_count
       // This is safe because:
       // 1. Only the viewCount field can be modified
-      // 2. Only increment operation is allowed (cannot set arbitrary values)
+      // 2. viewCount can only be increased (not decreased or set to arbitrary values)
       // 3. Cannot modify any other fields
-      // Note: Firebase FieldValue.increment() operations are handled server-side,
-      // so we only check that viewCount is the only field being modified
-      allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['viewCount']);
+      // Note: This works with Firebase FieldValue.increment() which adds to the existing value
+      allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['viewCount'])
+                    && request.resource.data.viewCount > resource.data.viewCount;
       
       // Users can update/delete their own listings, or admin can manage all
       allow update, delete: if request.auth != null 

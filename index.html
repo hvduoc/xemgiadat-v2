@@ -1091,11 +1091,9 @@
                         sources: {
                             'osm': { 
                                 type: 'raster', 
-                                tiles: ['https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'], 
+                                tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], 
                                 tileSize: 256, 
-                                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-                                // Fix CORS policy error
-                                crossOrigin: 'anonymous'
+                                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                             },
                             'parcels': {
                                 type: 'vector',
@@ -1103,7 +1101,7 @@
                             }
                         },
                         layers: [
-                            { id: 'osm', type: 'raster', source: 'osm' },
+                            { id: 'osm', type: 'raster', source: 'osm', paint: { 'raster-opacity': 0.8 } },
                             { id: 'parcels-fill-clickable', type: 'fill', source: 'parcels', 'source-layer': 'default', paint: { 'fill-color': 'transparent' } },
                             { 
                                 id: 'parcels-line', 
@@ -2065,7 +2063,7 @@
                     <div className="absolute bottom-28 right-4 z-50">
                         <button
                             onClick={toggle3DView}
-                            className="rounded-2xl shadow-2xl border p-4 transition-all"
+                            className="rounded-full shadow-2xl border p-2 transition-all w-10 h-10 flex flex-col items-center justify-center"
                             style={{
                                 backdropFilter: 'blur(24px)',
                                 backgroundColor: is3DView ? 'rgba(37, 99, 235, 0.9)' : 'rgba(255, 255, 255, 0.9)',
@@ -2073,10 +2071,7 @@
                             }}
                             aria-label={is3DView ? 'Chuyển về 2D' : 'Chuyển sang 3D'}
                         >
-                            <Icons.Box className={is3DView ? 'text-white' : 'text-slate-700'} />
-                            <div className="text-xs font-bold mt-1" style={{color: is3DView ? 'white' : '#334155'}}>
-                                {is3DView ? '2D' : '3D'}
-                            </div>
+                            <Icons.Box className={is3DView ? 'text-white w-5 h-5' : 'text-slate-700 w-5 h-5'} />
                         </button>
                     </div>
                     
@@ -2084,7 +2079,7 @@
                     <div className="absolute bottom-48 right-4 z-50">
                         <button
                             onClick={() => { setShowAIConsultant(true); triggerHaptic('medium'); }}
-                            className="rounded-2xl shadow-2xl border p-4 transition-all"
+                            className="rounded-full shadow-2xl border p-2 transition-all w-10 h-10 flex items-center justify-center"
                             style={{
                                 backdropFilter: 'blur(24px)',
                                 background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.9), rgba(99, 102, 241, 0.9))',
@@ -2092,10 +2087,7 @@
                             }}
                             aria-label="AI Tư vấn"
                         >
-                            <Icons.Sparkles className="text-white" />
-                            <div className="text-xs font-bold mt-1 text-white">
-                                AI
-                            </div>
+                            <Icons.Sparkles className="text-white w-5 h-5" />
                         </button>
                     </div>
 
@@ -2411,7 +2403,7 @@
                                                         <Icons.MapPin /> Tờ {selectedListing.so_to || 'N/A'} / Thửa {selectedListing.so_thua || 'N/A'}
                                                     </p>
                                                 </div>
-                                                <button onClick={() => { setSelectedListing(null); }} className="p-1 bg-slate-100 rounded-lg flex-shrink-0 mt-0.5">
+                                                <button onClick={() => { setSelectedListing(null); isListingInteractionActive.current = false; }} className="p-1 bg-slate-100 rounded-lg flex-shrink-0 mt-0.5">
                                                     <Icons.X className="w-4 h-4" />
                                                 </button>
                                             </div>
@@ -2579,7 +2571,7 @@
                                             </div>
                                             
                                             {/* Secondary Action Buttons */}
-                                            <div className="grid grid-cols-3 gap-2 mb-2">
+                                            <div className="grid grid-cols-4 gap-2 mb-2">
                                                 <a
                                                     href={`https://www.google.com/maps/dir/?api=1&destination=${selectedListing.coordinates[1]},${selectedListing.coordinates[0]}`}
                                                     target="_blank"
@@ -2597,6 +2589,12 @@
                                                     className="h-10 bg-amber-600 text-white rounded-lg font-bold text-xs flex items-center justify-center gap-1 transition-all active:scale-95"
                                                 >
                                                     <Icons.Eye className="w-4 h-4" /> Xem thực tế
+                                                </button>
+                                                <button
+                                                    onClick={() => { triggerHaptic('light'); setShareOpen(true); }}
+                                                    className="h-10 bg-blue-600 text-white rounded-lg font-bold text-xs flex items-center justify-center gap-1 transition-all active:scale-95"
+                                                >
+                                                    <Icons.Share /> Chia
                                                 </button>
                                                 <button
                                                     onClick={() => {

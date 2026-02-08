@@ -265,11 +265,13 @@ window.MapController = class MapController {
           if (currentZoom > 19) {
             // Fade out OSM, fade in Google Satellite
             this.map.setPaintProperty('osm', 'raster-opacity', 0);
+            this.map.setLayoutProperty('google-satellite', 'visibility', 'visible');
             this.map.setPaintProperty('google-satellite', 'raster-opacity', 1);
           } else {
             // Fade in OSM, fade out Google Satellite
             this.map.setPaintProperty('osm', 'raster-opacity', 1);
             this.map.setPaintProperty('google-satellite', 'raster-opacity', 0);
+            this.map.setLayoutProperty('google-satellite', 'visibility', 'none');
           }
         }
       });
@@ -855,10 +857,13 @@ window.MapController = class MapController {
       mapRadio.addEventListener('change', () => {
         if (mapRadio.checked) {
           this.map?.setLayoutProperty('google-hybrid', 'visibility', 'none');
-          this.map?.setLayoutProperty('google-street', 'visibility', 'visible');
-          this.map?.setLayoutProperty('osm', 'visibility', 'none');
+          this.map?.setLayoutProperty('google-street', 'visibility', 'none');
+          this.map?.setLayoutProperty('osm', 'visibility', 'visible');
           this.map?.setLayoutProperty('google-satellite', 'visibility', 'none');
           this.map?.setLayoutProperty('cartodb-voyager', 'visibility', 'none');
+          // Reset opacity for OSM
+          this.map?.setPaintProperty('osm', 'raster-opacity', 1);
+          this.map?.setPaintProperty('google-satellite', 'raster-opacity', 0);
         }
       });
 

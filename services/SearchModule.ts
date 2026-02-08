@@ -10,7 +10,7 @@ const workerCode = `
     const q = query.toLowerCase().trim();
     
     // Check if query is in format "XX YY" (sheet plot format)
-    const parts = q.split(/\\s+/);
+    const parts = q.split(/\s+/);
     if (parts.length === 2) {
       const sheet = parseInt(parts[0], 10);
       const plot = parseInt(parts[1], 10);

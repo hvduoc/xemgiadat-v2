@@ -62,6 +62,14 @@ service cloud.firestore {
               && (request.resource.data.lat is number)
               && (request.resource.data.lng is number);
       
+      // Special case: Allow ANYONE (including unauthenticated users) to increment view_count
+      // This is safe because:
+      // 1. Only the viewCount field can be modified
+      // 2. Only increment operation is allowed (cannot set arbitrary values)
+      // 3. Cannot modify any other fields
+      allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['viewCount'])
+                    && request.resource.data.viewCount == resource.data.viewCount + 1;
+      
       // Users can update/delete their own listings, or admin can manage all
       allow update, delete: if request.auth != null 
                             && (request.auth.uid == resource.data.userId || isAdmin());

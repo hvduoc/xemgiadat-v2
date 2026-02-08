@@ -67,6 +67,12 @@ window.SearchService = class SearchService {
         };
       });
 
+      // Debug log to see actual data structure
+      if (parcels.length > 0) {
+        console.log("[Search Debug] Sample Data:", parcels[0]);
+        console.log("[Search Debug] Raw Properties:", features[0]?.properties);
+      }
+
       // Sử dụng SearchModule để rank và filter kết quả
       const results = await this.searchModule.search(query, parcels);
       

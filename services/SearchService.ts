@@ -50,10 +50,15 @@ window.SearchService = class SearchService {
           ];
         }
 
+        // Map properties - support both Vietnamese and camelCase property names
+        // Priority: camelCase (SoThuTuThua, SoHieuToBanDo) > Vietnamese > snake_case
+        const soThua = String(props.SoThuTuThua || props['Số thửa'] || props.so_thua || '');
+        const soTo = String(props.SoHieuToBanDo || props['Số hiệu tờ bản đồ'] || props.so_to || '');
+
         return {
           id: f.id || props.OBJECTID || props['Mã thửa đất'] || '',
-          so_thua: props['Số thửa'] || props.so_thua || '',
-          so_to: props['Số hiệu tờ bản đồ'] || props.so_to || '',
+          so_thua: soThua,
+          so_to: soTo,
           dien_tich: parseFloat(props['Diện tích'] || props.dien_tich || 0),
           muc_dich: props['Ký hiệu mục đích sử dụng'] || props.muc_dich || '',
           ma_xa: props['Mã xã'] || props.ma_xa || '',

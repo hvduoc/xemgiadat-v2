@@ -326,8 +326,9 @@ window.MapController = class MapController {
 
       const targetFeature = features.find((f: any) => {
         const props = f.properties || {};
-        const fSoTo = props['Số hiệu tờ bản đồ'] || props.so_to || '';
-        const fSoThua = props['Số thửa'] || props.so_thua || '';
+        // Support both camelCase (SoHieuToBanDo, SoThuTuThua) and Vietnamese property names
+        const fSoTo = String(props.SoHieuToBanDo || props['Số hiệu tờ bản đồ'] || props.so_to || '');
+        const fSoThua = String(props.SoThuTuThua || props['Số thửa'] || props.so_thua || '');
         return fSoTo === soTo && fSoThua === soThua;
       });
 

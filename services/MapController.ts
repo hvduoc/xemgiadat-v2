@@ -47,6 +47,16 @@ window.MapController = class MapController {
     MapController.instance.clearRadiusCircle();
   }
 
+  static toggleMapStyle() {
+    if (!MapController.instance) return false;
+    return MapController.instance.toggleMapStyle();
+  }
+
+  static isSatelliteView() {
+    if (!MapController.instance) return false;
+    return MapController.instance.isSatelliteView();
+  }
+
   init(container: HTMLDivElement, initialView: any, onParcelClick: (data: any) => void, onListingClick?: (data: ListingData) => void) {
     try {
       const maplibregl = (window as any).maplibregl;
@@ -60,9 +70,25 @@ window.MapController = class MapController {
               tiles: ['https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'],
               tileSize: 256,
               attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+            },
+            'google-street': {
+              type: 'raster',
+              tiles: ['https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}'],
+              tileSize: 256,
+              attribution: '&copy; Google Maps'
+            },
+            'google-satellite': {
+              type: 'raster',
+              tiles: ['https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}'],
+              tileSize: 256,
+              attribution: '&copy; Google Maps'
             }
           },
-          layers: [{ id: 'osm', type: 'raster', source: 'osm' }]
+          layers: [
+            { id: 'osm', type: 'raster', source: 'osm', layout: { visibility: 'none' } },
+            { id: 'google-street', type: 'raster', source: 'google-street', layout: { visibility: 'visible' } },
+            { id: 'google-satellite', type: 'raster', source: 'google-satellite', layout: { visibility: 'none' } }
+          ]
         },
         center: initialView.lng && initialView.lat ? [initialView.lng, initialView.lat] : [108.2022, 16.0544],
         zoom: initialView.zoom || 14,
@@ -728,6 +754,43 @@ window.MapController = class MapController {
         }
       } catch (err) {
         console.error('[MapController] Failed to clear radius circle:', err);
+      }
+    }
+
+    /**
+     * Toggle between street and satellite map styles
+     */
+    toggleMapStyle() {
+      if (!this.map) return;
+
+      try {
+        // Get current visibility of google-satellite layer
+        const satelliteVisibility = this.map.getLayoutProperty('google-satellite', 'visibility');
+        const isSatellite = satelliteVisibility === 'visible';
+        
+        // Toggle visibility
+        this.map.setLayoutProperty('google-street', 'visibility', isSatellite ? 'visible' : 'none');
+        this.map.setLayoutProperty('google-satellite', 'visibility', isSatellite ? 'none' : 'visible');
+        
+        console.log(`[MapController] Switched to ${isSatellite ? 'street' : 'satellite'} view`);
+        
+        return !isSatellite; // Return new satellite state
+      } catch (err) {
+        console.error('[MapController] Failed to toggle map style:', err);
+        return false;
+      }
+    }
+
+    /**
+     * Check if current view is satellite
+     */
+    isSatelliteView() {
+      if (!this.map) return false;
+      try {
+        const satelliteVisibility = this.map.getLayoutProperty('google-satellite', 'visibility');
+        return satelliteVisibility === 'visible';
+      } catch (err) {
+        return false;
       }
     }
 };

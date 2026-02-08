@@ -28,7 +28,8 @@ const {
   Coffee,
   Video,
   Scissors,
-  QrCode
+  QrCode,
+  Layers
 } = lucide;
 
 const App = () => {
@@ -58,6 +59,7 @@ const App = () => {
   const [view, setView] = useState('info' as 'info' | 'listing' | 'success' | 'listing-detail');
   const [panelState, setPanelState] = useState('expanded' as 'peek' | 'expanded');
   const [is3DView, setIs3DView] = useState(false);
+  const [isSatellite, setIsSatellite] = useState(false);
   
   // Radius circle state
   const [radiusMeters, setRadiusMeters] = useState(RADIUS_DEFAULT);
@@ -222,6 +224,15 @@ const App = () => {
         duration: 1000
       });
       setIs3DView(false);
+    }
+  };
+
+  // Toggle map style between street and satellite
+  const toggleMapStyle = () => {
+    triggerHaptic('medium');
+    const newIsSatellite = MapController.toggleMapStyle();
+    if (newIsSatellite !== false) {
+      setIsSatellite(newIsSatellite);
     }
   };
 
@@ -449,8 +460,23 @@ const App = () => {
           </form>
         </div>
 
-        {/* 3D View Toggle Button */}
+        {/* Map Control Buttons */}
         <div className="absolute bottom-28 right-4 z-50 flex flex-col gap-3">
+          {/* Map Style Toggle Button */}
+          <button
+            onClick={toggleMapStyle}
+            className={`backdrop-blur-xl ${isSatellite ? 'bg-blue-600/90' : 'bg-white/90'} 
+              rounded-2xl shadow-2xl border ${isSatellite ? 'border-blue-400/20' : 'border-white/20'} 
+              p-4 transition-all duration-300 active:scale-95 hover:scale-105`}
+            aria-label={isSatellite ? 'Chuyển về bản đồ' : 'Chuyển sang vệ tinh'}
+          >
+            <Layers className={`w-6 h-6 ${isSatellite ? 'text-white' : 'text-slate-700'}`} />
+            <div className={`text-xs font-bold mt-1 ${isSatellite ? 'text-white' : 'text-slate-700'}`}>
+              {isSatellite ? 'Map' : 'Sat'}
+            </div>
+          </button>
+          
+          {/* 3D View Toggle Button */}
           <button
             onClick={toggle3DView}
             className={`backdrop-blur-xl ${is3DView ? 'bg-blue-600/90' : 'bg-white/90'} 

@@ -636,6 +636,9 @@ window.MapController = class MapController {
             10, 0.8,
             18, 0.5
           ]
+        },
+        layout: {
+          'visibility': 'visible'
         }
       });
 
@@ -647,9 +650,25 @@ window.MapController = class MapController {
         paint: {
           'line-color': 'rgba(59, 130, 246, 0.8)',
           'line-width': 2,
-          'line-dasharray': [3, 3]
+          'line-dasharray': [3, 3],
+          'line-opacity': 1
+        },
+        layout: {
+          'visibility': 'visible'
         }
       });
+
+      // Add transition for smooth animations
+      if (this.map.setPaintProperty) {
+        this.map.setPaintProperty('parcel-radius-fill', 'fill-opacity-transition', {
+          duration: 300,
+          delay: 0
+        });
+        this.map.setPaintProperty('parcel-radius-border', 'line-opacity-transition', {
+          duration: 300,
+          delay: 0
+        });
+      }
     }
 
     /**

@@ -6,7 +6,7 @@ Hệ thống Zero-Touch Deploy cho phép bạn triển khai code lên production
 
 ## Tính năng
 
-✅ **Tự động phát hiện nhánh**: Tự động tìm nhánh `copilot/...` mới nhất  
+✅ **Tự động phát hiện nhánh**: Tự động tìm nhánh `copilot/...` mới nhất dựa trên thời gian commit  
 ✅ **Triển khai một chạm**: Chỉ cần bấm nút "Run workflow"  
 ✅ **Dọn dẹp tự động**: Tự động xóa nhánh sau khi deploy (có thể tắt)  
 ✅ **An toàn**: Sử dụng GitHub Actions với quyền hạn được kiểm soát  
@@ -57,8 +57,9 @@ Hệ thống Zero-Touch Deploy cho phép bạn triển khai code lên production
 
 ### branch_name (Tùy chọn)
 - **Mô tả**: Tên nhánh muốn triển khai
-- **Mặc định**: Tự động tìm nhánh `copilot/...` mới nhất
+- **Mặc định**: Tự động tìm nhánh `copilot/...` mới nhất (dựa trên thời gian commit gần nhất)
 - **Ví dụ**: `copilot/setup-zero-touch-deploy`
+- **Lưu ý**: Nếu có nhiều nhánh với cùng thời gian commit, hệ thống sẽ chọn nhánh đầu tiên trong danh sách sắp xếp
 
 ### cleanup (Boolean)
 - **Mô tả**: Xóa nhánh sau khi triển khai xong

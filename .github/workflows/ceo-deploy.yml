@@ -26,14 +26,13 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
       
       - name: ⚙️ Configure Git
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
       
-      - name: �� Detect Target Branch
+      - name: 🔍 Detect Target Branch
         id: detect-branch
         run: |
           if [ -n "${{ inputs.branch_name }}" ]; then
@@ -44,7 +43,7 @@ jobs:
             # Auto-detect the latest copilot branch
             echo "Auto-detecting latest copilot branch..."
             git fetch origin
-            BRANCH_NAME=$(git branch -r --sort=-committerdate | grep 'origin/copilot/' | head -n 1 | sed 's/^[[:space:]]*origin\///' | xargs)
+            BRANCH_NAME=$(git branch -r --sort=-committerdate | grep 'origin/copilot/' | head -n 1 | sed 's/^[[:space:]]*origin\///' | tr -d ' ')
             
             if [ -z "$BRANCH_NAME" ]; then
               echo "❌ Error: No copilot branch found!"
@@ -77,7 +76,7 @@ jobs:
           echo "✅ Deployment completed successfully!"
       
       - name: 🧹 Cleanup Branch
-        if: ${{ inputs.cleanup == true }}
+        if: inputs.cleanup
         run: |
           BRANCH_NAME="${{ steps.detect-branch.outputs.branch_name }}"
           
@@ -89,13 +88,20 @@ jobs:
       - name: 📢 Summary
         if: always()
         run: |
+          BRANCH_NAME="${{ steps.detect-branch.outputs.branch_name }}"
           echo "## 🎉 Deployment Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Target Branch:** ${{ steps.detect-branch.outputs.branch_name }}" >> $GITHUB_STEP_SUMMARY
+          if [ -n "$BRANCH_NAME" ]; then
+            echo "- **Target Branch:** $BRANCH_NAME" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **Target Branch:** (detection failed)" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "- **Cleanup:** ${{ inputs.cleanup }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 📦 Latest Commits on Main" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-          git log --oneline -5 >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          if git rev-parse --verify main >/dev/null 2>&1; then
+            echo "### 📦 Latest Commits on Main" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            git log --oneline -5 main >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          fi

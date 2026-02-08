@@ -783,6 +783,7 @@ window.MapController = class MapController {
 
     /**
      * Check if current view is hybrid/satellite
+     * Note: 'Satellite' refers to hybrid view (satellite + labels) for backward compatibility
      */
     isSatelliteView() {
       if (!this.map) return false;

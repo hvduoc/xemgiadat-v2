@@ -1,0 +1,101 @@
+name: 🚀 Chốt Đơn (CEO Mode)
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch_name:
+        description: 'Tên nhánh muốn chốt (để trống = tự động tìm copilot/... mới nhất)'
+        required: false
+        type: string
+      cleanup:
+        description: 'Xóa nhánh phụ sau khi chốt xong?'
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    name: Deploy to Main
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: ⚙️ Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      
+      - name: �� Detect Target Branch
+        id: detect-branch
+        run: |
+          if [ -n "${{ inputs.branch_name }}" ]; then
+            # User provided a branch name
+            BRANCH_NAME="${{ inputs.branch_name }}"
+            echo "Using user-provided branch: $BRANCH_NAME"
+          else
+            # Auto-detect the latest copilot branch
+            echo "Auto-detecting latest copilot branch..."
+            git fetch origin
+            BRANCH_NAME=$(git branch -r --sort=-committerdate | grep 'origin/copilot/' | head -n 1 | sed 's/^[[:space:]]*origin\///' | xargs)
+            
+            if [ -z "$BRANCH_NAME" ]; then
+              echo "❌ Error: No copilot branch found!"
+              exit 1
+            fi
+            
+            echo "Found latest copilot branch: $BRANCH_NAME"
+          fi
+          
+          # Save branch name for next steps
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          echo "📦 Target branch: $BRANCH_NAME"
+      
+      - name: 🚀 Deploy to Main
+        run: |
+          BRANCH_NAME="${{ steps.detect-branch.outputs.branch_name }}"
+          
+          echo "🔄 Fetching branch: $BRANCH_NAME"
+          git fetch origin "$BRANCH_NAME"
+          
+          echo "📍 Checking out main branch"
+          git checkout main
+          
+          echo "🎯 Resetting main to $BRANCH_NAME"
+          git reset --hard "origin/$BRANCH_NAME"
+          
+          echo "⬆️ Force pushing to main"
+          git push origin main --force
+          
+          echo "✅ Deployment completed successfully!"
+      
+      - name: 🧹 Cleanup Branch
+        if: ${{ inputs.cleanup == true }}
+        run: |
+          BRANCH_NAME="${{ steps.detect-branch.outputs.branch_name }}"
+          
+          echo "🗑️ Deleting remote branch: $BRANCH_NAME"
+          git push origin --delete "$BRANCH_NAME" || echo "⚠️ Branch already deleted or doesn't exist"
+          
+          echo "✅ Cleanup completed!"
+      
+      - name: 📢 Summary
+        if: always()
+        run: |
+          echo "## 🎉 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Target Branch:** ${{ steps.detect-branch.outputs.branch_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Cleanup:** ${{ inputs.cleanup }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📦 Latest Commits on Main" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          git log --oneline -5 >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY

@@ -70,7 +70,26 @@
     }
   }
 
-  setupSafeLocation();
+  // Wrap setupSafeLocation call in try-catch to prevent "Cannot redefine property" errors
+  try {
+    setupSafeLocation();
+  } catch (e) {
+    console.warn('[INIT] setupSafeLocation failed (non-critical):', e.message);
+    // Store fallback location anyway
+    if (!window.__SAFE_LOCATION__) {
+      window.__SAFE_LOCATION__ = {
+        href: 'https://xemgiadat.com/',
+        origin: 'https://xemgiadat.com',
+        protocol: 'https:',
+        host: 'xemgiadat.com',
+        hostname: 'xemgiadat.com',
+        pathname: '/',
+        search: '',
+        hash: '',
+        toString: function() { return 'https://xemgiadat.com/'; }
+      };
+    }
+  }
 
   /**
    * 3. FIREBASE INITIALIZATION

@@ -67,7 +67,7 @@
       // Fallback: Store in a separate window property
       window.__SAFE_LOCATION__ = fakeLoc;
       // Silent fallback - this is expected in some environments
-      console.log('[INIT] ℹ️ Using fallback location storage');
+      console.log('[INIT] [INFO] Using fallback location storage');
     }
   }
 
@@ -78,9 +78,9 @@
     // Silently handle expected "Cannot redefine property" errors
     // These are non-critical and expected in certain browser environments
     if (e.message && e.message.includes('Cannot redefine property')) {
-      console.log('[INIT] ℹ️ Location override skipped (already defined)');
+      console.log('[INIT] [INFO] Location override skipped (already defined)');
     } else {
-      console.log('[INIT] ℹ️ setupSafeLocation skipped:', e.message);
+      console.log('[INIT] [INFO] setupSafeLocation skipped:', e.message);
     }
     // Store fallback location anyway
     if (!window.__SAFE_LOCATION__) {

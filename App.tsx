@@ -46,6 +46,11 @@ const App = () => {
   const BANK_NAME = 'VCB';
   const BANK_HOLDER = 'ADMIN'; // TODO: Replace with actual account holder name
   
+  // Radius circle configuration
+  const RADIUS_MIN = 100;
+  const RADIUS_MAX = 2000;
+  const RADIUS_DEFAULT = 500;
+  
     const [searchService, setSearchService] = useState<any>(null);
   
   const [selectedParcel, setSelectedParcel] = useState(null as ParcelData | null);
@@ -55,7 +60,7 @@ const App = () => {
   const [is3DView, setIs3DView] = useState(false);
   
   // Radius circle state
-  const [radiusMeters, setRadiusMeters] = useState(500);
+  const [radiusMeters, setRadiusMeters] = useState(RADIUS_DEFAULT);
   
   // Monetization modals
   const [showVIPModal, setShowVIPModal] = useState(false);
@@ -155,20 +160,14 @@ const App = () => {
   }, [controller]);
 
   // Draw radius circle when parcel is selected or radius changes
+  // Clear when listing is selected or parcel is deselected
   useEffect(() => {
-    if (selectedParcel && selectedParcel.coordinates) {
+    if (selectedParcel && selectedParcel.coordinates && !selectedListing) {
       MapController.drawRadiusCircle(selectedParcel.coordinates, radiusMeters);
     } else {
       MapController.clearRadiusCircle();
     }
-  }, [selectedParcel, radiusMeters]);
-
-  // Clear radius circle when parcel is deselected or listing is selected
-  useEffect(() => {
-    if (selectedListing || !selectedParcel) {
-      MapController.clearRadiusCircle();
-    }
-  }, [selectedListing, selectedParcel]);
+  }, [selectedParcel, radiusMeters, selectedListing]);
 
   // Haptic feedback simulation
   const triggerHaptic = (type: 'light' | 'medium' | 'heavy' = 'medium') => {
@@ -616,19 +615,22 @@ const App = () => {
                         </div>
                         <input
                           type="range"
-                          min="100"
-                          max="2000"
+                          min={RADIUS_MIN}
+                          max={RADIUS_MAX}
                           step="50"
                           value={radiusMeters}
                           onChange={(e) => setRadiusMeters(Number(e.target.value))}
                           className="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer"
-                          style={{
-                            background: `linear-gradient(to right, rgb(59, 130, 246) 0%, rgb(59, 130, 246) ${((radiusMeters - 100) / 1900) * 100}%, rgb(219, 234, 254) ${((radiusMeters - 100) / 1900) * 100}%, rgb(219, 234, 254) 100%)`
-                          }}
+                          style={(() => {
+                            const progressPercent = ((radiusMeters - RADIUS_MIN) / (RADIUS_MAX - RADIUS_MIN)) * 100;
+                            return {
+                              background: `linear-gradient(to right, rgb(59, 130, 246) 0%, rgb(59, 130, 246) ${progressPercent}%, rgb(219, 234, 254) ${progressPercent}%, rgb(219, 234, 254) 100%)`
+                            };
+                          })()}
                         />
                         <div className="flex justify-between mt-1">
-                          <span className="text-[10px] text-blue-600">100m</span>
-                          <span className="text-[10px] text-blue-600">2000m</span>
+                          <span className="text-[10px] text-blue-600">{RADIUS_MIN}m</span>
+                          <span className="text-[10px] text-blue-600">{RADIUS_MAX}m</span>
                         </div>
                       </div>
                     </div>

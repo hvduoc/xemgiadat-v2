@@ -674,10 +674,19 @@ window.MapController = class MapController {
     /**
      * Draw radius circle around a point
      * @param center - Center coordinates [lng, lat]
-     * @param radius - Radius in meters
+     * @param radius - Radius in meters (100-2000m)
      */
     drawRadiusCircle(center: [number, number], radius: number) {
       if (!this.map) return;
+
+      // Validate radius parameter
+      const MIN_RADIUS = 100;
+      const MAX_RADIUS = 2000;
+      const validRadius = Math.max(MIN_RADIUS, Math.min(MAX_RADIUS, radius));
+      
+      if (validRadius !== radius) {
+        console.warn(`[MapController] Radius ${radius}m out of range, clamped to ${validRadius}m`);
+      }
 
       const turf = (window as any).turf;
       if (!turf) {
@@ -687,7 +696,7 @@ window.MapController = class MapController {
 
       try {
         // Create circle using Turf.js
-        const circle = turf.circle(center, radius, { steps: 64, units: 'meters' });
+        const circle = turf.circle(center, validRadius, { steps: 64, units: 'meters' });
         
         const source = this.map.getSource('parcel-radius') as any;
         if (source && typeof source.setData === 'function') {

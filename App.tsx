@@ -231,7 +231,7 @@ const App = () => {
   const toggleMapStyle = () => {
     triggerHaptic('medium');
     const newIsSatellite = MapController.toggleMapStyle();
-    if (newIsSatellite !== false) {
+    if (typeof newIsSatellite === 'boolean') {
       setIsSatellite(newIsSatellite);
     }
   };
@@ -472,7 +472,7 @@ const App = () => {
           >
             <Layers className={`w-6 h-6 ${isSatellite ? 'text-white' : 'text-slate-700'}`} />
             <div className={`text-xs font-bold mt-1 ${isSatellite ? 'text-white' : 'text-slate-700'}`}>
-              {isSatellite ? 'Map' : 'Sat'}
+              {isSatellite ? 'Đường' : 'Vệ tinh'}
             </div>
           </button>
           

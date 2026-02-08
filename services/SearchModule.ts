@@ -8,10 +8,34 @@ const workerCode = `
     }
     
     const q = query.toLowerCase().trim();
+    
+    // Check if query is in format "XX YY" (sheet plot format)
+    const parts = q.split(/\\s+/);
+    if (parts.length === 2) {
+      const sheet = parseInt(parts[0], 10);
+      const plot = parseInt(parts[1], 10);
+      
+      if (!isNaN(sheet) && !isNaN(plot)) {
+        // Exact match for sheet and plot numbers
+        const exactMatches = parcels
+          .filter(p => {
+            const pSheet = parseInt(p.so_to, 10);
+            const pPlot = parseInt(p.so_thua, 10);
+            return pSheet === sheet && pPlot === plot;
+          })
+          .map(p => ({ parcel: p, relevance: 1000 }));
+        
+        if (exactMatches.length > 0) {
+          self.postMessage(exactMatches);
+          return;
+        }
+      }
+    }
+    
+    // Fallback to original search logic
     const results = parcels
       .map(p => {
         let score = 0;
-        // Fix: Changed property names to snake_case to match ParcelData
         const so_thua = p.so_thua || "";
         const so_to = p.so_to || "";
         const dia_chi = p.dia_chi || "";
@@ -61,6 +85,30 @@ class SearchModule {
   private searchSync(query: string, parcels: ParcelData[]): SearchResult[] {
     const q = query.toLowerCase().trim();
     if (!q) return [];
+    
+    // Check if query is in format "XX YY" (sheet plot format)
+    const parts = q.split(/\s+/);
+    if (parts.length === 2) {
+      const sheet = parseInt(parts[0], 10);
+      const plot = parseInt(parts[1], 10);
+      
+      if (!isNaN(sheet) && !isNaN(plot)) {
+        // Exact match for sheet and plot numbers
+        const exactMatches = parcels
+          .filter(p => {
+            const pSheet = parseInt(p.so_to, 10);
+            const pPlot = parseInt(p.so_thua, 10);
+            return pSheet === sheet && pPlot === plot;
+          })
+          .map(p => ({ parcel: p, relevance: 1000 }));
+        
+        if (exactMatches.length > 0) {
+          return exactMatches;
+        }
+      }
+    }
+    
+    // Fallback to original search logic
     return parcels
       .map(p => {
         let score = 0;

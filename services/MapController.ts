@@ -65,6 +65,20 @@ window.MapController = class MapController {
         style: {
           version: 8,
           sources: {
+            'osm': {
+              type: 'raster',
+              tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+              tileSize: 256,
+              maxzoom: 19, // OSM free max zoom is 19
+              attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            },
+            'google-satellite': {
+              type: 'raster',
+              tiles: ['https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}'],
+              tileSize: 256,
+              maxzoom: 22, // Google supports high zoom levels
+              attribution: '&copy; Google Maps'
+            },
             'cartodb-voyager': {
               type: 'raster',
               tiles: ['https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'],
@@ -85,6 +99,8 @@ window.MapController = class MapController {
             }
           },
           layers: [
+            { id: 'osm', type: 'raster', source: 'osm', layout: { visibility: 'none' }, paint: { 'raster-opacity': 1 } },
+            { id: 'google-satellite', type: 'raster', source: 'google-satellite', layout: { visibility: 'none' }, paint: { 'raster-opacity': 0 } },
             { id: 'cartodb-voyager', type: 'raster', source: 'cartodb-voyager', layout: { visibility: 'none' } },
             { id: 'google-street', type: 'raster', source: 'google-street', layout: { visibility: 'none' } },
             { id: 'google-hybrid', type: 'raster', source: 'google-hybrid', layout: { visibility: 'visible' } }
@@ -92,6 +108,7 @@ window.MapController = class MapController {
         },
         center: initialView.lng && initialView.lat ? [initialView.lng, initialView.lat] : [108.2022, 16.0544],
         zoom: initialView.zoom || 14,
+        maxZoom: 22, // Allow high zoom levels
         hash: false, // TUYỆT ĐỐI KHÔNG ĐƯỢC BẬT TRONG IFRAME
         validateStyle: false, // Bỏ qua xác thực style để giảm thiểu network calls ngầm
         transformRequest: (url: string) => {
@@ -106,6 +123,18 @@ window.MapController = class MapController {
       this.map.on('load', () => {
         const StyleEngine = (window as any).StyleEngine;
         StyleEngine.applyLODStyle(this.map!);
+        
+        // Add UI controls
+        this.map.addControl(new maplibregl.NavigationControl(), 'top-right');
+        this.map.addControl(new maplibregl.GeolocateControl({
+          positionOptions: {
+            enableHighAccuracy: true
+          },
+          trackUserLocation: true
+        }), 'top-right');
+        
+        // Add map style toggle control
+        this.addMapStyleToggle();
         
         // Add listing layers
         this.addListingLayers();
@@ -223,6 +252,26 @@ window.MapController = class MapController {
         const LinkService = (window as any).LinkService;
         const c = this.map.getCenter();
         LinkService.updateUrl(c.lat, c.lng, this.map.getZoom());
+      });
+
+      // Handle zoom-based layer switching for OSM/Google Satellite
+      this.map.on('zoom', () => {
+        if (!this.map) return;
+        const currentZoom = this.map.getZoom();
+        
+        // When zoom > 19, switch from OSM to Google Satellite (if OSM is active)
+        const osmVisibility = this.map.getLayoutProperty('osm', 'visibility');
+        if (osmVisibility === 'visible') {
+          if (currentZoom > 19) {
+            // Fade out OSM, fade in Google Satellite
+            this.map.setPaintProperty('osm', 'raster-opacity', 0);
+            this.map.setPaintProperty('google-satellite', 'raster-opacity', 1);
+          } else {
+            // Fade in OSM, fade out Google Satellite
+            this.map.setPaintProperty('osm', 'raster-opacity', 1);
+            this.map.setPaintProperty('google-satellite', 'raster-opacity', 0);
+          }
+        }
       });
 
       return this.map;
@@ -755,6 +804,82 @@ window.MapController = class MapController {
       } catch (err) {
         console.error('[MapController] Failed to clear radius circle:', err);
       }
+    }
+
+    /**
+     * Add map style toggle control (radio buttons)
+     */
+    private addMapStyleToggle() {
+      if (!this.map) return;
+
+      // Create container
+      const container = document.createElement('div');
+      container.style.position = 'absolute';
+      container.style.top = '10px';
+      container.style.left = '10px';
+      container.style.background = 'white';
+      container.style.padding = '10px';
+      container.style.borderRadius = '4px';
+      container.style.boxShadow = '0 0 0 2px rgba(0,0,0,0.1)';
+      container.style.zIndex = '1';
+      container.style.fontFamily = 'Arial, sans-serif';
+      container.style.fontSize = '14px';
+
+      // Create radio button for "Bản đồ" (Map)
+      const mapRadio = document.createElement('input');
+      mapRadio.type = 'radio';
+      mapRadio.name = 'mapStyle';
+      mapRadio.id = 'mapStyleMap';
+      mapRadio.value = 'map';
+      
+      const mapLabel = document.createElement('label');
+      mapLabel.htmlFor = 'mapStyleMap';
+      mapLabel.textContent = ' Bản đồ';
+      mapLabel.style.marginRight = '10px';
+      mapLabel.style.cursor = 'pointer';
+
+      // Create radio button for "Vệ tinh" (Satellite)
+      const satelliteRadio = document.createElement('input');
+      satelliteRadio.type = 'radio';
+      satelliteRadio.name = 'mapStyle';
+      satelliteRadio.id = 'mapStyleSatellite';
+      satelliteRadio.value = 'satellite';
+      satelliteRadio.checked = true; // Default to satellite (google-hybrid)
+      
+      const satelliteLabel = document.createElement('label');
+      satelliteLabel.htmlFor = 'mapStyleSatellite';
+      satelliteLabel.textContent = ' Vệ tinh';
+      satelliteLabel.style.cursor = 'pointer';
+
+      // Add event listeners
+      mapRadio.addEventListener('change', () => {
+        if (mapRadio.checked) {
+          this.map?.setLayoutProperty('google-hybrid', 'visibility', 'none');
+          this.map?.setLayoutProperty('google-street', 'visibility', 'visible');
+          this.map?.setLayoutProperty('osm', 'visibility', 'none');
+          this.map?.setLayoutProperty('google-satellite', 'visibility', 'none');
+          this.map?.setLayoutProperty('cartodb-voyager', 'visibility', 'none');
+        }
+      });
+
+      satelliteRadio.addEventListener('change', () => {
+        if (satelliteRadio.checked) {
+          this.map?.setLayoutProperty('google-hybrid', 'visibility', 'visible');
+          this.map?.setLayoutProperty('google-street', 'visibility', 'none');
+          this.map?.setLayoutProperty('osm', 'visibility', 'none');
+          this.map?.setLayoutProperty('google-satellite', 'visibility', 'none');
+          this.map?.setLayoutProperty('cartodb-voyager', 'visibility', 'none');
+        }
+      });
+
+      // Assemble the control
+      container.appendChild(mapRadio);
+      container.appendChild(mapLabel);
+      container.appendChild(satelliteRadio);
+      container.appendChild(satelliteLabel);
+
+      // Add to map container
+      this.map.getContainer().appendChild(container);
     }
 
     /**

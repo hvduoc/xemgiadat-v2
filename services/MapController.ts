@@ -65,9 +65,9 @@ window.MapController = class MapController {
         style: {
           version: 8,
           sources: {
-            'osm': {
+            'cartodb-voyager': {
               type: 'raster',
-              tiles: ['https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'],
+              tiles: ['https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'],
               tileSize: 256,
               attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
             },
@@ -77,7 +77,7 @@ window.MapController = class MapController {
               tileSize: 256,
               attribution: '&copy; Google Maps'
             },
-            'google-satellite': {
+            'google-hybrid': {
               type: 'raster',
               tiles: ['https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}'],
               tileSize: 256,
@@ -85,9 +85,9 @@ window.MapController = class MapController {
             }
           },
           layers: [
-            { id: 'osm', type: 'raster', source: 'osm', layout: { visibility: 'none' } },
+            { id: 'cartodb-voyager', type: 'raster', source: 'cartodb-voyager', layout: { visibility: 'none' } },
             { id: 'google-street', type: 'raster', source: 'google-street', layout: { visibility: 'none' } },
-            { id: 'google-satellite', type: 'raster', source: 'google-satellite', layout: { visibility: 'visible' } }
+            { id: 'google-hybrid', type: 'raster', source: 'google-hybrid', layout: { visibility: 'visible' } }
           ]
         },
         center: initialView.lng && initialView.lat ? [initialView.lng, initialView.lat] : [108.2022, 16.0544],
@@ -758,23 +758,23 @@ window.MapController = class MapController {
     }
 
     /**
-     * Toggle between street and satellite map styles
+     * Toggle between street and hybrid map styles
      */
     toggleMapStyle() {
       if (!this.map) return;
 
       try {
-        // Get current visibility of google-satellite layer
-        const satelliteVisibility = this.map.getLayoutProperty('google-satellite', 'visibility');
-        const isSatellite = satelliteVisibility === 'visible';
+        // Get current visibility of google-hybrid layer
+        const hybridVisibility = this.map.getLayoutProperty('google-hybrid', 'visibility');
+        const isHybrid = hybridVisibility === 'visible';
         
         // Toggle visibility
-        this.map.setLayoutProperty('google-street', 'visibility', isSatellite ? 'visible' : 'none');
-        this.map.setLayoutProperty('google-satellite', 'visibility', isSatellite ? 'none' : 'visible');
+        this.map.setLayoutProperty('google-street', 'visibility', isHybrid ? 'visible' : 'none');
+        this.map.setLayoutProperty('google-hybrid', 'visibility', isHybrid ? 'none' : 'visible');
         
-        console.log(`[MapController] Switched to ${isSatellite ? 'street' : 'satellite'} view`);
+        console.log(`[MapController] Switched to ${isHybrid ? 'street' : 'hybrid'} view`);
         
-        return !isSatellite; // Return new satellite state
+        return !isHybrid; // Return new hybrid state
       } catch (err) {
         console.error('[MapController] Failed to toggle map style:', err);
         return false;
@@ -782,13 +782,13 @@ window.MapController = class MapController {
     }
 
     /**
-     * Check if current view is satellite
+     * Check if current view is hybrid/satellite
      */
     isSatelliteView() {
       if (!this.map) return false;
       try {
-        const satelliteVisibility = this.map.getLayoutProperty('google-satellite', 'visibility');
-        return satelliteVisibility === 'visible';
+        const hybridVisibility = this.map.getLayoutProperty('google-hybrid', 'visibility');
+        return hybridVisibility === 'visible';
       } catch (err) {
         return false;
       }

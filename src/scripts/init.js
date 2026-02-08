@@ -66,7 +66,8 @@
     } catch (e) {
       // Fallback: Store in a separate window property
       window.__SAFE_LOCATION__ = fakeLoc;
-      console.warn('[INIT] window.location override failed, using fallback:', e.message);
+      // Silent fallback - this is expected in some environments
+      console.log('[INIT] ℹ️ Using fallback location storage');
     }
   }
 
@@ -74,7 +75,13 @@
   try {
     setupSafeLocation();
   } catch (e) {
-    console.warn('[INIT] setupSafeLocation failed (non-critical):', e.message);
+    // Silently handle expected "Cannot redefine property" errors
+    // These are non-critical and expected in certain browser environments
+    if (e.message && e.message.includes('Cannot redefine property')) {
+      console.log('[INIT] ℹ️ Location override skipped (already defined)');
+    } else {
+      console.log('[INIT] ℹ️ setupSafeLocation skipped:', e.message);
+    }
     // Store fallback location anyway
     if (!window.__SAFE_LOCATION__) {
       window.__SAFE_LOCATION__ = {

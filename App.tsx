@@ -54,6 +54,9 @@ const App = () => {
   const [panelState, setPanelState] = useState('expanded' as 'peek' | 'expanded');
   const [is3DView, setIs3DView] = useState(false);
   
+  // Radius circle state
+  const [radiusMeters, setRadiusMeters] = useState(500);
+  
   // Monetization modals
   const [showVIPModal, setShowVIPModal] = useState(false);
   const [showCoffeeModal, setShowCoffeeModal] = useState(false);
@@ -150,6 +153,22 @@ const App = () => {
         service?.terminate();
       };
   }, [controller]);
+
+  // Draw radius circle when parcel is selected or radius changes
+  useEffect(() => {
+    if (selectedParcel && selectedParcel.coordinates) {
+      MapController.drawRadiusCircle(selectedParcel.coordinates, radiusMeters);
+    } else {
+      MapController.clearRadiusCircle();
+    }
+  }, [selectedParcel, radiusMeters]);
+
+  // Clear radius circle when parcel is deselected or listing is selected
+  useEffect(() => {
+    if (selectedListing || !selectedParcel) {
+      MapController.clearRadiusCircle();
+    }
+  }, [selectedListing, selectedParcel]);
 
   // Haptic feedback simulation
   const triggerHaptic = (type: 'light' | 'medium' | 'heavy' = 'medium') => {
@@ -587,6 +606,30 @@ const App = () => {
                           <span className="text-xl">📍</span>
                           <span className="text-xs font-bold text-orange-900">Cắm mốc</span>
                         </button>
+                      </div>
+                      
+                      {/* Radius Circle Slider */}
+                      <div className="mt-4 p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-100">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-bold text-blue-900 uppercase tracking-widest">Vòng Tròn Tiện Ích</span>
+                          <span className="text-sm font-black text-blue-700">{radiusMeters}m</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="100"
+                          max="2000"
+                          step="50"
+                          value={radiusMeters}
+                          onChange={(e) => setRadiusMeters(Number(e.target.value))}
+                          className="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer"
+                          style={{
+                            background: `linear-gradient(to right, rgb(59, 130, 246) 0%, rgb(59, 130, 246) ${((radiusMeters - 100) / 1900) * 100}%, rgb(219, 234, 254) ${((radiusMeters - 100) / 1900) * 100}%, rgb(219, 234, 254) 100%)`
+                          }}
+                        />
+                        <div className="flex justify-between mt-1">
+                          <span className="text-[10px] text-blue-600">100m</span>
+                          <span className="text-[10px] text-blue-600">2000m</span>
+                        </div>
                       </div>
                     </div>
                     </div>

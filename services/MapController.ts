@@ -37,6 +37,16 @@ window.MapController = class MapController {
     return MapController.instance ? MapController.instance.getMap() : null;
   }
 
+  static drawRadiusCircle(center: [number, number], radius: number) {
+    if (!MapController.instance) return;
+    MapController.instance.drawRadiusCircle(center, radius);
+  }
+
+  static clearRadiusCircle() {
+    if (!MapController.instance) return;
+    MapController.instance.clearRadiusCircle();
+  }
+
   init(container: HTMLDivElement, initialView: any, onParcelClick: (data: any) => void, onListingClick?: (data: ListingData) => void) {
     try {
       const maplibregl = (window as any).maplibregl;
@@ -73,6 +83,9 @@ window.MapController = class MapController {
         
         // Add listing layers
         this.addListingLayers();
+        
+        // Add radius circle layer
+        this.addRadiusCircleLayer();
         
         // Initialize listings from Firebase if available
         this.refreshListings();
@@ -591,6 +604,100 @@ window.MapController = class MapController {
       } catch (err) {
         console.error('[MapController] Failed to get listing:', err);
         return null;
+      }
+    }
+
+    /**
+     * Add radius circle layer to the map
+     */
+    private addRadiusCircleLayer() {
+      if (!this.map || this.map.getSource('parcel-radius')) return;
+
+      // Add source for radius circle
+      this.map.addSource('parcel-radius', {
+        type: 'geojson',
+        data: {
+          type: 'FeatureCollection',
+          features: []
+        }
+      });
+
+      // Add fill layer with light blue color
+      this.map.addLayer({
+        id: 'parcel-radius-fill',
+        type: 'fill',
+        source: 'parcel-radius',
+        paint: {
+          'fill-color': 'rgba(59, 130, 246, 0.1)',
+          'fill-opacity': [
+            'interpolate',
+            ['linear'],
+            ['zoom'],
+            10, 0.8,
+            18, 0.5
+          ]
+        }
+      });
+
+      // Add dashed border layer
+      this.map.addLayer({
+        id: 'parcel-radius-border',
+        type: 'line',
+        source: 'parcel-radius',
+        paint: {
+          'line-color': 'rgba(59, 130, 246, 0.8)',
+          'line-width': 2,
+          'line-dasharray': [3, 3]
+        }
+      });
+    }
+
+    /**
+     * Draw radius circle around a point
+     * @param center - Center coordinates [lng, lat]
+     * @param radius - Radius in meters
+     */
+    drawRadiusCircle(center: [number, number], radius: number) {
+      if (!this.map) return;
+
+      const turf = (window as any).turf;
+      if (!turf) {
+        console.error('[MapController] Turf.js not loaded');
+        return;
+      }
+
+      try {
+        // Create circle using Turf.js
+        const circle = turf.circle(center, radius, { steps: 64, units: 'meters' });
+        
+        const source = this.map.getSource('parcel-radius') as any;
+        if (source && typeof source.setData === 'function') {
+          source.setData({
+            type: 'FeatureCollection',
+            features: [circle]
+          });
+        }
+      } catch (err) {
+        console.error('[MapController] Failed to draw radius circle:', err);
+      }
+    }
+
+    /**
+     * Clear radius circle from the map
+     */
+    clearRadiusCircle() {
+      if (!this.map) return;
+
+      try {
+        const source = this.map.getSource('parcel-radius') as any;
+        if (source && typeof source.setData === 'function') {
+          source.setData({
+            type: 'FeatureCollection',
+            features: []
+          });
+        }
+      } catch (err) {
+        console.error('[MapController] Failed to clear radius circle:', err);
       }
     }
 };

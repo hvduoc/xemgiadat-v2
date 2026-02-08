@@ -39,7 +39,7 @@
     </script>
     
     <!-- Initialization utilities (refactored) -->
-    <script src="./src/scripts/init.js"></script>
+    <script src="./src/scripts/init.js?v=4.2"></script>
     
     <!-- Core Libraries -->
     <link href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
@@ -88,7 +88,7 @@
     </script>
 
     <!-- Main Application Styles (Refactored) -->
-    <link rel="stylesheet" href="./src/styles/main.css" />
+    <link rel="stylesheet" href="./src/styles/main.css?v=4.2" />
 </head>
 <body>
     <div id="root"></div>
@@ -1091,9 +1091,9 @@
                         sources: {
                             'osm': { 
                                 type: 'raster', 
-                                tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], 
+                                tiles: ['https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'], 
                                 tileSize: 256, 
-                                attribution: '© OpenStreetMap contributors',
+                                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
                                 // Fix CORS policy error
                                 crossOrigin: 'anonymous'
                             },
@@ -1344,6 +1344,20 @@
                     console.log('[Click] ✅ Setting selected data:', selectedData);
                     setSelected(selectedData);
                     setView('info');
+                });
+                
+                // PRIORITY 3: Background click handler (reset flag when clicking empty space)
+                map.on('click', (e) => {
+                    // Check if click was on a feature (cluster, listing, or parcel)
+                    const features = map.queryRenderedFeatures(e.point, {
+                        layers: [LISTINGS_LAYER_CLUSTERS, 'user-listings-points-hitbox', 'parcels-fill-clickable']
+                    });
+                    
+                    // If no features clicked, reset the flag
+                    if (!features || features.length === 0) {
+                        console.log('[Click] Background clicked - resetting interaction flag');
+                        isListingInteractionActive.current = false;
+                    }
                 });
                 
                 // Cursor pointer on hover
@@ -1599,6 +1613,7 @@
                 if (sheetTranslateY > 100) {
                     setSelected(null);
                     setSelectedListing(null);
+                    isListingInteractionActive.current = false;
                     triggerHaptic('light');
                 }
                 
@@ -2083,55 +2098,13 @@
                             </div>
                         </button>
                     </div>
-                    
-                    {/* Coffee Button - Monetization */}
-                    <div className="absolute top-20 right-4 z-[9999]" style={{zIndex: '9999 !important'}}>
-                        <a
-                            href="https://www.buymeacoffee.com/xemgiadat"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={() => triggerHaptic('medium')}
-                            className="rounded-2xl shadow-2xl border p-4 transition-all hover:scale-105 active:scale-95 block"
-                            style={{
-                                backdropFilter: 'blur(24px)',
-                                background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.95), rgba(217, 119, 6, 0.95))',
-                                borderColor: 'rgba(251, 191, 36, 0.3)'
-                            }}
-                            aria-label="Mời cà phê"
-                        >
-                            <div className="text-2xl">☕</div>
-                            <div className="text-xs font-bold mt-1 text-white whitespace-nowrap">
-                                Cà phê
-                            </div>
-                        </a>
-                    </div>
-                    
-                    {/* VIP Service Button - Monetization */}
-                    <div className="absolute top-36 right-4 z-[9999]">
-                        <a
-                            href="mailto:contact@xemgiadat.com?subject=Đăng ký dịch vụ VIP"
-                            onClick={() => triggerHaptic('medium')}
-                            className="rounded-2xl shadow-2xl border p-4 transition-all hover:scale-105 active:scale-95 block"
-                            style={{
-                                backdropFilter: 'blur(24px)',
-                                background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.95), rgba(147, 51, 234, 0.95))',
-                                borderColor: 'rgba(192, 132, 252, 0.3)'
-                            }}
-                            aria-label="Dịch vụ VIP"
-                        >
-                            <div className="text-2xl">🔧</div>
-                            <div className="text-xs font-bold mt-1 text-white whitespace-nowrap">
-                                VIP
-                            </div>
-                        </a>
-                    </div>
 
                     {(selected || selectedListing) && (
                         <>
                             {/* Bottom Sheet Overlay */}
                             <div 
                                 className="bottom-sheet-overlay"
-                                onClick={() => { setSelected(null); setSelectedListing(null); }}
+                                onClick={() => { setSelected(null); setSelectedListing(null); isListingInteractionActive.current = false; }}
                             />
                             
                             <div 
@@ -2142,7 +2115,7 @@
                                 onTouchEnd={handleSheetTouchEnd}
                             >
                                 <div className="max-w-xl mx-auto rounded-t-[2.5rem] pb-safe border-t overflow-hidden" style={{backdropFilter: 'blur(48px)', backgroundColor: 'rgba(255, 255, 255, 0.95)', boxShadow: '0 -20px 60px rgba(0, 0, 0, 0.3)', borderColor: 'rgba(255, 255, 255, 0.2)'}}>
-                                    <div className="h-10 flex justify-center items-center cursor-pointer" onClick={() => { setSelected(null); setSelectedListing(null); }}>
+                                    <div className="h-10 flex justify-center items-center cursor-pointer" onClick={() => { setSelected(null); setSelectedListing(null); isListingInteractionActive.current = false; }}>
                                         <div className="w-12 h-1.5 bg-slate-300 rounded-full" />
                                     </div>
 
@@ -2188,7 +2161,7 @@
                                                         <Icons.MapPin /> {selected.dia_chi}
                                                     </p>
                                                 </div>
-                                                <button onClick={() => setSelected(null)} className="p-1 bg-slate-100 rounded-lg flex-shrink-0 mt-0.5">
+                                                <button onClick={() => { setSelected(null); isListingInteractionActive.current = false; }} className="p-1 bg-slate-100 rounded-lg flex-shrink-0 mt-0.5">
                                                     <Icons.X className="w-4 h-4" />
                                                 </button>
                                             </div>

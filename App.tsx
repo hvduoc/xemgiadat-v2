@@ -169,6 +169,14 @@ const App = () => {
     }
   }, [selectedParcel, radiusMeters, selectedListing]);
 
+  // Helper function to generate slider gradient style
+  const getSliderGradientStyle = (value: number, min: number, max: number) => {
+    const progressPercent = ((value - min) / (max - min)) * 100;
+    return {
+      background: `linear-gradient(to right, rgb(59, 130, 246) 0%, rgb(59, 130, 246) ${progressPercent}%, rgb(219, 234, 254) ${progressPercent}%, rgb(219, 234, 254) 100%)`
+    };
+  };
+
   // Haptic feedback simulation
   const triggerHaptic = (type: 'light' | 'medium' | 'heavy' = 'medium') => {
     // Try native vibration API
@@ -621,12 +629,7 @@ const App = () => {
                           value={radiusMeters}
                           onChange={(e) => setRadiusMeters(Number(e.target.value))}
                           className="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer"
-                          style={(() => {
-                            const progressPercent = ((radiusMeters - RADIUS_MIN) / (RADIUS_MAX - RADIUS_MIN)) * 100;
-                            return {
-                              background: `linear-gradient(to right, rgb(59, 130, 246) 0%, rgb(59, 130, 246) ${progressPercent}%, rgb(219, 234, 254) ${progressPercent}%, rgb(219, 234, 254) 100%)`
-                            };
-                          })()}
+                          style={getSliderGradientStyle(radiusMeters, RADIUS_MIN, RADIUS_MAX)}
                         />
                         <div className="flex justify-between mt-1">
                           <span className="text-[10px] text-blue-600">{RADIUS_MIN}m</span>

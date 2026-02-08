@@ -696,6 +696,8 @@ window.MapController = class MapController {
 
       try {
         // Create circle using Turf.js
+        // turf.circle(center, radius, options) where radius is in the units specified
+        // With units: 'meters', validRadius is interpreted as meters (correct)
         const circle = turf.circle(center, validRadius, { steps: 64, units: 'meters' });
         
         const source = this.map.getSource('parcel-radius') as any;

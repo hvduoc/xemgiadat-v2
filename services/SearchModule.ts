@@ -12,8 +12,9 @@ const workerCode = `
       .map(p => {
         let score = 0;
         // Fix: Changed property names to snake_case to match ParcelData
-        const so_thua = p.so_thua || "";
-        const so_to = p.so_to || "";
+        // Convert to String to handle numeric values from PMTiles
+        const so_thua = String(p.so_thua || "").trim().toLowerCase();
+        const so_to = String(p.so_to || "").trim().toLowerCase();
         const dia_chi = p.dia_chi || "";
 
         if (so_thua === q) score += 100;
@@ -65,8 +66,9 @@ class SearchModule {
       .map(p => {
         let score = 0;
         // Fix: Changed property names to snake_case (so_thua, so_to, dia_chi) to match ParcelData
-        const so_thua = p.so_thua || "";
-        const so_to = p.so_to || "";
+        // Convert to String to handle numeric values from PMTiles
+        const so_thua = String(p.so_thua || "").trim().toLowerCase();
+        const so_to = String(p.so_to || "").trim().toLowerCase();
         const dia_chi = p.dia_chi || "";
 
         if (so_thua === q) score += 100;

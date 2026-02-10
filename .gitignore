@@ -29,5 +29,4 @@ playwright-report
 
 # Raw data artifacts
 *.geojson
-!public/data/search_index.json
 src/raw_data/

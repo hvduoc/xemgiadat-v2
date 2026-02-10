@@ -2,9 +2,16 @@ class LandParcelService {
   private indexCache: Record<string, [number, number]> | null = null;
   private indexLoadPromise: Promise<void> | null = null;
   private readonly INDEX_URL = 'data/search_index.json';
+  private readonly RAW_FALLBACK_URL =
+    'https://raw.githubusercontent.com/hvduoc/xemgiadat-v2/main/public/data/search_index.json';
 
   constructor() {
     (window as any).LandParcelService = this;
+
+    const idle = (window as any).requestIdleCallback || ((cb: any) => setTimeout(cb, 0));
+    idle(() => {
+      this.loadIndex().catch(() => undefined);
+    });
   }
 
   createEmptyFeatureCollection() {
@@ -156,11 +163,29 @@ class LandParcelService {
     this.indexLoadPromise = (async () => {
       try {
         const baseUrl = (import.meta as any).env?.BASE_URL || '/';
-        const fetchUrl = (baseUrl + 'data/search_index.json').replace('//', '/');
-        const response = await fetch(fetchUrl, { cache: 'no-store' });
-        if (!response.ok) {
-          throw new Error(`Failed to load index: ${response.status}`);
+        const normalizedBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+        const primaryUrl = (normalizedBase + url).replace(/\/\//g, '/');
+        const candidates = [primaryUrl, this.RAW_FALLBACK_URL];
+
+        let response: Response | null = null;
+        for (const candidate of candidates) {
+          try {
+            const res = await fetch(candidate, { cache: 'no-store' });
+            if (res.ok) {
+              response = res;
+              break;
+            }
+          } catch (err) {
+            console.warn('[LandParcelService] Index fetch failed:', candidate, err);
+          }
         }
+
+        if (!response) {
+          throw new Error('Failed to load index from all sources');
+        }
+
+        const idle = (window as any).requestIdleCallback || ((cb: any) => setTimeout(cb, 0));
+        await new Promise((resolve) => idle(resolve));
 
         const data = await response.json();
         const index = data?.index;

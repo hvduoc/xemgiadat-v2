@@ -7,12 +7,13 @@ export default defineConfig(({ mode }) => {
     return {
       base: './',
       build: {
+        outDir: 'dist',
         emptyOutDir: true,
         rollupOptions: {
           output: {
-            entryFileNames: 'assets/index.js',
-            chunkFileNames: 'assets/[name].js',
-            assetFileNames: 'assets/[name][extname]',
+            entryFileNames: 'assets/index-[hash].js',
+            chunkFileNames: 'assets/[name]-[hash].js',
+            assetFileNames: 'assets/[name]-[hash][extname]',
           },
         },
       },

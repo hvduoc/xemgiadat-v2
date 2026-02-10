@@ -6,13 +6,7 @@
     <title>XemGiaDat V5.1 - GIS Standalone Pro</title>
     
     <!-- CDNs ĐIỀU KIỆN TIÊN QUYẾT -->
-    <script type="importmap">
-    {
-        "imports": {
-            "pmtiles": "https://unpkg.com/pmtiles@3.2.0/dist/index.js"
-        }
-    }
-    </script>
+
     
     <!-- Critical Initialization utilities (INLINED for reliability) -->
     <script>
@@ -57,38 +51,18 @@
     <script src="https://www.gstatic.com/firebasejs/ui/6.0.2/firebase-ui-auth.js"></script>
     
     <!-- PMTiles Setup via ES Module -->
-    <script type="module">
-        import * as pmtiles from 'pmtiles';
-        
-        // Expose to window for backward compatibility
-        window.pmtiles = pmtiles;
-        window.__trackCDN('pmtiles', true);
-        console.log('[PMTiles] ✓ Loaded via ES module:', pmtiles);
-        
-        // Register protocol immediately
-        if (window.maplibregl) {
-            const protocol = new pmtiles.Protocol();
-            window.maplibregl.addProtocol("pmtiles", protocol.tile);
-            window.__pmtiles_registered = true;
-            console.log('[PMTiles] ✓ Protocol registered');
-        } else {
-            // Wait for maplibregl to load
-            const checkMapLibre = setInterval(() => {
-                if (window.maplibregl) {
-                    clearInterval(checkMapLibre);
-                    const protocol = new pmtiles.Protocol();
-                    window.maplibregl.addProtocol("pmtiles", protocol.tile);
-                    window.__pmtiles_registered = true;
-                    console.log('[PMTiles] ✓ Protocol registered (delayed)');
-                }
-            }, 100);
-        }
-    </script>
 
     <!-- Main Application Styles (Refactored) -->
-    <link rel="stylesheet" href="./src/styles/main.css" />
     <!-- Compiled CSS from Vite Build -->
-    <link rel="stylesheet" crossorigin href="./dist/assets/index-D6ZkEBoM.css">
+    <script type="importmap">
+    {
+        "imports": {
+            "pmtiles": "https://unpkg.com/pmtiles@3.2.0/dist/index.js"
+        }
+    }
+    </script>
+  <script type="module" crossorigin src="./assets/index-BzhI99Lj.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-D6ZkEBoM.css">
 </head>
 <body>
     <div id="root"></div>
@@ -399,6 +373,5 @@
     </script>
 
     <!-- Vite Entry Point - Compiled Production Build -->
-    <script type="module" crossorigin src="./dist/assets/index-BzhI99Lj.js"></script>
 </body>
 </html>

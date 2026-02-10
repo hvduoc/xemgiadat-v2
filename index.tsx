@@ -1,3 +1,5 @@
+import './services/LandParcelService';
+
 const React = (window as any).React;
 const ReactDOM = (window as any).ReactDOM;
 

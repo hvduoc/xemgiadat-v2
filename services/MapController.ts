@@ -228,6 +228,7 @@ window.MapController = class MapController {
       if (!this.map) return;
     
       const StyleEngine = (window as any).StyleEngine;
+      const LandParcelService = (window as any).LandParcelService;
     
       // Tìm feature trong viewport hiện tại
       const features = this.map.querySourceFeatures(StyleEngine.SOURCE_ID, {
@@ -242,18 +243,10 @@ window.MapController = class MapController {
       });
 
       if (targetFeature) {
-        // Tính tọa độ trung tâm của polygon
-        let center: [number, number] = [108.2022, 16.0544];
-      
-        if (targetFeature.geometry?.type === 'Polygon' && targetFeature.geometry.coordinates?.[0]?.[0]) {
-          const coords = targetFeature.geometry.coordinates[0];
-          const lngs = coords.map((c: any) => c[0]);
-          const lats = coords.map((c: any) => c[1]);
-          center = [
-            (Math.min(...lngs) + Math.max(...lngs)) / 2,
-            (Math.min(...lats) + Math.max(...lats)) / 2
-          ];
-        }
+        const fallback: [number, number] = [108.2022, 16.0544];
+        const center = LandParcelService
+          ? LandParcelService.getPolygonCenter(targetFeature.geometry, fallback)
+          : fallback;
 
         // Bay đến và zoom vào
         this.map.flyTo({
@@ -306,74 +299,13 @@ window.MapController = class MapController {
      * Add listing layers to the map
      */
     private addListingLayers() {
-      if (!this.map || this.map.getSource('user-listings')) return;
+      const LandParcelService = (window as any).LandParcelService;
+      if (!LandParcelService) {
+        console.warn('[MapController] LandParcelService missing; listing layers not initialized.');
+        return;
+      }
 
-      // Add source for listings with clustering
-      this.map.addSource('user-listings', {
-        type: 'geojson',
-        data: {
-          type: 'FeatureCollection',
-          features: []
-        },
-        cluster: true,
-        clusterMaxZoom: 14,
-        clusterRadius: 50
-      });
-
-      // Add cluster layer
-      this.map.addLayer({
-        id: 'user-listings-clusters',
-        type: 'circle',
-        source: 'user-listings',
-        filter: ['has', 'point_count'],
-        paint: {
-          'circle-color': [
-            'step',
-            ['get', 'point_count'],
-            '#51bbd6',
-            5,
-            '#f1f075',
-            10,
-            '#f28cb1'
-          ],
-          'circle-radius': [
-            'step',
-            ['get', 'point_count'],
-            20,
-            5,
-            30,
-            10,
-            40
-          ]
-        }
-      });
-
-      // Add cluster count layer
-      this.map.addLayer({
-        id: 'user-listings-cluster-count',
-        type: 'symbol',
-        source: 'user-listings',
-        filter: ['has', 'point_count'],
-        layout: {
-          'text-field': '{point_count_abbreviated}',
-          'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
-          'text-size': 12
-        }
-      });
-
-      // Add individual points layer
-      this.map.addLayer({
-        id: 'user-listings-points',
-        type: 'circle',
-        source: 'user-listings',
-        filter: ['!', ['has', 'point_count']],
-        paint: {
-          'circle-color': '#ff4444',
-          'circle-radius': 8,
-          'circle-stroke-width': 2,
-          'circle-stroke-color': '#ffffff'
-        }
-      });
+      LandParcelService.ensureListingLayers(this.map);
     }
 
     /**
@@ -428,46 +360,10 @@ window.MapController = class MapController {
           });
         }
 
-        const features = snapshot.docs.map((doc: any) => {
-          try {
-            const data = doc.data() || {};
-            if (typeof data.lng !== 'number' || typeof data.lat !== 'number') {
-              console.warn(`[MapController] Invalid coordinates for listing ${doc.id}`);
-              return null;
-            }
-            
-            // Get user profile or fallback to old data
-            const userProfile = data.userId ? userProfiles[data.userId] : null;
-            const userName = userProfile?.displayName || data.userName || 'Người đăng';
-            const phone = userProfile?.phone || data.phone || '';
-            
-            return {
-              type: 'Feature',
-              geometry: {
-                type: 'Point',
-                coordinates: [data.lng, data.lat]
-              },
-              properties: {
-                id: doc.id,
-                userId: data.userId || '',
-                so_to: data.soHieuToBanDo || '',
-                so_thua: data.soThuTuThua || '',
-                dien_tich: data.dienTich || 0,
-                priceValue: data.priceValue || 0,
-                priceUnit: data.priceUnit || 'VND',
-                isNegotiable: data.isNegotiable || false,
-                loaiGiaoDich: data.loaiGiaoDich || 'ban-dat',
-                userName,
-                phone,
-                note: data.note || '',
-                status: data.status || 'approved'
-              }
-            };
-          } catch (err) {
-            console.warn(`[MapController] Error processing listing ${doc.id}:`, err);
-            return null;
-          }
-        }).filter(Boolean);
+        const LandParcelService = (window as any).LandParcelService;
+        const features = LandParcelService
+          ? LandParcelService.buildListingFeatures(snapshot, userProfiles)
+          : [];
 
         // Cache the results
         this.listingsCache = features;
@@ -499,12 +395,9 @@ window.MapController = class MapController {
      */
     private updateMapSource(features: any[]) {
       try {
-        const source = this.map.getSource('user-listings') as any;
-        if (source && typeof source.setData === 'function') {
-          source.setData({
-            type: 'FeatureCollection',
-            features
-          });
+        const LandParcelService = (window as any).LandParcelService;
+        if (LandParcelService) {
+          LandParcelService.updateGeoJsonSource(this.map, 'user-listings', features);
         }
       } catch (err) {
         console.error('[MapController] Failed to update map source:', err);

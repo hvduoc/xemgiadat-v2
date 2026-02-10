@@ -26,3 +26,8 @@ playwright-report
 *.njsproj
 *.sln
 *.sw?
+
+# Raw data artifacts
+*.geojson
+data/search_index.json
+src/raw_data/

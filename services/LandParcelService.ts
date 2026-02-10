@@ -165,7 +165,7 @@ class LandParcelService {
 
     this.communeListPromise = (async () => {
       try {
-        const baseUrl = (import.meta as any).env?.BASE_URL || '/';
+        const baseUrl = (import.meta as any).env?.BASE_URL || './';
         const normalizedBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
         const primaryUrl = (normalizedBase + url).replace(/\/\//g, '/');
         const fallbackUrl = `${this.RAW_FALLBACK_BASE}/communes.json`;
@@ -217,7 +217,7 @@ class LandParcelService {
 
     this.indexLoadPromises[key] = (async () => {
       try {
-        const baseUrl = (import.meta as any).env?.BASE_URL || '/';
+        const baseUrl = (import.meta as any).env?.BASE_URL || './';
         const normalizedBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
         const shardUrl = `${this.SHARD_DIR}/${key}.json`;
         const primaryUrl = (normalizedBase + shardUrl).replace(/\/\//g, '/');

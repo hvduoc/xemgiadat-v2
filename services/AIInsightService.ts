@@ -11,18 +11,10 @@ class AIInsightService {
   static async init() {
     if (this.dataLoaded) return;
     
-    try {
-      // Try to load search_index.json for price comparisons
-      const response = await fetch('/data/search_index.json');
-      if (response.ok) {
-        this.priceData = await response.json();
-        this.dataLoaded = true;
-        console.log('[AIInsight] Price data loaded successfully');
-      }
-    } catch (err) {
-      console.warn('[AIInsight] Could not load price data:', err);
-      this.dataLoaded = true; // Mark as loaded to avoid repeated attempts
-    }
+    // Data is now sharded per-commune — no monolithic file to load
+    // Price insights use hardcoded heuristics (area average not available in shards)
+    this.dataLoaded = true;
+    console.log('[AIInsight] Initialized (sharded mode — no monolithic index)');
   }
 
   /**

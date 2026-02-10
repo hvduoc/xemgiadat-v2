@@ -518,6 +518,112 @@
                 }
             }
         };
+
+        /**
+         * 6. LAND PARCEL SERVICE (Sharded Data Loading)
+         */
+        window.LandParcelService = {
+            SHARD_DIR: './data/parcels',
+            indexCacheByMaXa: {},
+            communeListCache: null,
+            loadPromises: {},
+            communeListPromise: null,
+            RAW_FALLBACK_BASE: 'https://raw.githubusercontent.com/hvduoc/xemgiadat-v2/main/public/data/parcels',
+
+            async loadCommuneList() {
+                if (this.communeListCache) return this.communeListCache;
+                if (this.communeListPromise) return this.communeListPromise;
+
+                this.communeListPromise = (async () => {
+                    try {
+                        const urls = [
+                            `${this.SHARD_DIR}/communes.json`,
+                            `${this.RAW_FALLBACK_BASE}/communes.json`
+                        ];
+                        let response = null;
+                        for (const url of urls) {
+                            try {
+                                const res = await fetch(url, { cache: 'no-store' });
+                                if (res.ok) { response = res; break; }
+                            } catch (e) { /* try next */ }
+                        }
+                        if (!response) throw new Error('Failed to load commune list');
+                        const data = await response.json();
+                        this.communeListCache = Array.isArray(data?.communes) ? data.communes.map(String) : [];
+                    } catch (err) {
+                        console.error('[LandParcelService] Commune list failed:', err);
+                        this.communeListCache = [];
+                    }
+                    return this.communeListCache;
+                })();
+
+                return this.communeListPromise;
+            },
+
+            async getCommuneList() {
+                return this.communeListCache || await this.loadCommuneList();
+            },
+
+            async loadIndexForMaXa(maXa) {
+                const key = String(maXa || '').trim();
+                if (!key) return;
+                if (this.indexCacheByMaXa[key]) return;
+                if (this.loadPromises[key]) return this.loadPromises[key];
+
+                this.loadPromises[key] = (async () => {
+                    try {
+                        const urls = [
+                            `${this.SHARD_DIR}/${key}.json`,
+                            `${this.RAW_FALLBACK_BASE}/${key}.json`
+                        ];
+                        let response = null;
+                        for (const url of urls) {
+                            try {
+                                const res = await fetch(url, { cache: 'no-store' });
+                                if (res.ok) { response = res; break; }
+                            } catch (e) { /* try next */ }
+                        }
+                        if (!response) throw new Error(`Shard load failed: ${key}`);
+                        const data = await response.json();
+                        const index = data?.index;
+                        this.indexCacheByMaXa[key] = (index && typeof index === 'object') ? index : {};
+                    } catch (err) {
+                        console.error('[LandParcelService] Shard load failed:', err);
+                        this.indexCacheByMaXa[key] = {};
+                    }
+                })();
+
+                return this.loadPromises[key];
+            },
+
+            normalizeParcelKey(parcelNumber) {
+                const trimmed = (parcelNumber || '').trim();
+                if (!trimmed) return null;
+                if (trimmed.includes(':')) return trimmed;
+                const parts = trimmed.split(/[\s/]+/).filter(Boolean);
+                if (parts.length < 2) return null;
+                const soTo = parseInt(parts[0], 10);
+                const soThua = parseInt(parts[1], 10);
+                if (isNaN(soTo) || isNaN(soThua)) return null;
+                return `${soTo}:${soThua}`;
+            },
+
+            async searchParcelByNumber(parcelNumber, maXa) {
+                if (!parcelNumber || !maXa) return null;
+                await this.loadIndexForMaXa(maXa);
+                const key = this.normalizeParcelKey(parcelNumber);
+                if (!key) return null;
+                const index = this.indexCacheByMaXa[maXa] || {};
+                const coords = index[key];
+                if (Array.isArray(coords) && coords.length === 2) {
+                    return coords;
+                }
+                return null;
+            }
+        };
+        // Pre-load commune list
+        window.LandParcelService.loadCommuneList().catch(() => {});
+        console.log('[Init] LandParcelService ready (sharded mode)');
     </script>
 
     <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
@@ -665,17 +771,10 @@
 
             async init() {
                 if (this.dataLoaded) return;
-                try {
-                    const response = await fetch('./data/search_index.json');
-                    if (response.ok) {
-                        this.priceData = await response.json();
-                        this.dataLoaded = true;
-                        console.log('[AIInsight] Price data loaded');
-                    }
-                } catch (err) {
-                    console.warn('[AIInsight] Could not load price data:', err);
-                    this.dataLoaded = true;
-                }
+                // Data is now sharded per-commune — no monolithic file to load
+                // Price insights use hardcoded heuristics (area average not available in shards)
+                this.dataLoaded = true;
+                console.log('[AIInsight] Initialized (sharded mode — no monolithic index)');
             },
 
             getAreaAveragePrice(maXa) {
@@ -787,6 +886,11 @@
             const [aiResponse, setAiResponse] = useState(null); // AI response
             const [showStreetView, setShowStreetView] = useState(false); // Street View toggle
             const [knowledgeBase, setKnowledgeBase] = useState([]); // AI Knowledge Base
+            
+            // Commune dropdown for sharded search
+            const [communeOptions, setCommuneOptions] = useState([]);
+            const [selectedMaXa, setSelectedMaXa] = useState('');
+            const [isCommuneLoading, setIsCommuneLoading] = useState(false);
             
             // Bottom Sheet swipe gesture states
             const [sheetTranslateY, setSheetTranslateY] = useState(0);
@@ -1489,6 +1593,30 @@
                 return () => map.remove();
             }, []);
             
+            // Load Commune List for sharded search
+            useEffect(() => {
+                const lps = window.LandParcelService;
+                if (!lps) return;
+                setIsCommuneLoading(true);
+                lps.getCommuneList().then(list => {
+                    setCommuneOptions(list || []);
+                    console.log('[Commune] Loaded', list?.length, 'communes');
+                }).catch(err => {
+                    console.error('[Commune] Load failed:', err);
+                }).finally(() => setIsCommuneLoading(false));
+            }, []);
+
+            // Prefetch shard when commune selected
+            useEffect(() => {
+                if (!selectedMaXa) return;
+                const lps = window.LandParcelService;
+                if (lps) {
+                    lps.loadIndexForMaXa(selectedMaXa).then(() => {
+                        console.log('[Shard] Prefetched:', selectedMaXa);
+                    });
+                }
+            }, [selectedMaXa]);
+
             // Load AI Knowledge Base
             useEffect(() => {
                 fetch('./data/land-law-2024.json')
@@ -1504,7 +1632,7 @@
 
             const handleSearch = async (e) => {
                 e.preventDefault();
-                if (!searchQuery.trim() || !searchServiceRef.current) return;
+                if (!searchQuery.trim()) return;
 
                 const parts = searchQuery.trim().split(/[\/\s]+/).filter(Boolean);
                 if (parts.length < 2) return;
@@ -1513,8 +1641,30 @@
 
                 setIsSearching(true);
                 try {
-                    const results = await searchServiceRef.current.searchParcels(`${soTo} ${soThua}`);
-                    setSearchResults(results || []);
+                    // PRIORITY 1: Try LandParcelService sharded search when commune selected
+                    const lps = window.LandParcelService;
+                    if (lps && selectedMaXa) {
+                        const normalizedKey = `${parseInt(soTo, 10)}:${parseInt(soThua, 10)}`;
+                        const coords = await lps.searchParcelByNumber(normalizedKey, selectedMaXa);
+                        if (coords) {
+                            console.log('[Search] Shard hit:', normalizedKey, '→', coords);
+                            const map = window.MapController?.getMap?.();
+                            if (map) {
+                                map.flyTo({ center: coords, zoom: 18, duration: 1500, essential: true });
+                            }
+                            setSearchResults([]);
+                            setSearchQuery('');
+                            return;
+                        }
+                    }
+
+                    // PRIORITY 2: Fallback to viewport-based search
+                    if (searchServiceRef.current) {
+                        const results = await searchServiceRef.current.searchParcels(`${soTo} ${soThua}`);
+                        setSearchResults(results || []);
+                    } else {
+                        setSearchResults([]);
+                    }
                 } catch (err) {
                     console.error('Search failed:', err);
                     setSearchResults([]);
@@ -1970,6 +2120,23 @@
                                             <Icons.X />
                                         </button>
                                     )}
+                                </div>
+
+                                {/* Commune Dropdown */}
+                                <div className="px-4 pb-2">
+                                    <select
+                                        value={selectedMaXa}
+                                        onChange={e => setSelectedMaXa(e.target.value)}
+                                        disabled={isCommuneLoading}
+                                        className="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 font-medium text-slate-700 outline-none focus:border-blue-400"
+                                    >
+                                        <option value="">
+                                            {isCommuneLoading ? '⏳ Đang tải xã/phường...' : '🏘️ Chọn xã/phường (tìm nhanh)'}
+                                        </option>
+                                        {communeOptions.map(code => (
+                                            <option key={code} value={code}>Mã xã: {code}</option>
+                                        ))}
+                                    </select>
                                 </div>
                             
                                 {/* Search Results */}

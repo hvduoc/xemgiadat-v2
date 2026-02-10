@@ -7,17 +7,17 @@ const { test, expect } = require('@playwright/test');
  */
 
 test.describe('V4.0 Monetization Features', () => {
-  test('search_index.json should load successfully (200 status)', async ({ page }) => {
+  test('communes.json should load successfully (sharded data)', async ({ page }) => {
     // Navigate to the page first
     await page.goto('/');
 
     // Wait for initial load
     await page.waitForTimeout(1000);
 
-    // Try to fetch the JSON file directly
+    // Try to fetch the commune list from sharded data
     const response = await page.evaluate(async () => {
       try {
-        const res = await fetch('./data/search_index.json');
+        const res = await fetch('./data/parcels/communes.json');
         return { status: res.status, ok: res.ok };
       } catch (err) {
         return { status: 0, ok: false, error: err.message };
@@ -27,7 +27,7 @@ test.describe('V4.0 Monetization Features', () => {
     expect(response.status).toBe(200);
     expect(response.ok).toBe(true);
     
-    console.log('[V4.0 Test] ✓ search_index.json accessible with status:', response.status);
+    console.log('[V4.0 Test] ✓ communes.json accessible with status:', response.status);
   });
 
   test('Coffee button should be present and visible', async ({ page }) => {

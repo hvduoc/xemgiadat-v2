@@ -3,6 +3,10 @@ class LandParcelService {
   private indexLoadPromise: Promise<void> | null = null;
   private readonly INDEX_URL = './data/search_index.json';
 
+  constructor() {
+    (window as any).LandParcelService = this;
+  }
+
   createEmptyFeatureCollection() {
     return {
       type: 'FeatureCollection',
@@ -167,6 +171,7 @@ class LandParcelService {
       } catch (err) {
         console.error('[LandParcelService] Index load failed:', err);
         this.indexCache = {};
+        (window as any).LandParcelService = this;
       }
     })();
 

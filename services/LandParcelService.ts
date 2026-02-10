@@ -1,16 +1,19 @@
 class LandParcelService {
-  private indexCache: Record<string, [number, number]> | null = null;
-  private indexLoadPromise: Promise<void> | null = null;
-  private readonly INDEX_URL = 'data/search_index.json';
-  private readonly RAW_FALLBACK_URL =
-    'https://raw.githubusercontent.com/hvduoc/xemgiadat-v2/main/public/data/search_index.json';
+  private indexCacheByMaXa: Record<string, Record<string, [number, number]>> = {};
+  private indexLoadPromises: Record<string, Promise<void>> = {};
+  private communeListCache: string[] | null = null;
+  private communeListPromise: Promise<void> | null = null;
+  private readonly SHARD_DIR = 'data/parcels';
+  private readonly COMMUNE_LIST_URL = 'data/parcels/communes.json';
+  private readonly RAW_FALLBACK_BASE =
+    'https://raw.githubusercontent.com/hvduoc/xemgiadat-v2/main/public/data/parcels';
 
   constructor() {
     (window as any).LandParcelService = this;
 
     const idle = (window as any).requestIdleCallback || ((cb: any) => setTimeout(cb, 0));
     idle(() => {
-      this.loadIndex().catch(() => undefined);
+      this.loadCommuneList().catch(() => undefined);
     });
   }
 
@@ -156,16 +159,17 @@ class LandParcelService {
     }
   }
 
-  async loadIndex(url: string = this.INDEX_URL) {
-    if (this.indexCache) return;
-    if (this.indexLoadPromise) return this.indexLoadPromise;
+  async loadCommuneList(url: string = this.COMMUNE_LIST_URL) {
+    if (this.communeListCache) return;
+    if (this.communeListPromise) return this.communeListPromise;
 
-    this.indexLoadPromise = (async () => {
+    this.communeListPromise = (async () => {
       try {
         const baseUrl = (import.meta as any).env?.BASE_URL || '/';
         const normalizedBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
         const primaryUrl = (normalizedBase + url).replace(/\/\//g, '/');
-        const candidates = [primaryUrl, this.RAW_FALLBACK_URL];
+        const fallbackUrl = `${this.RAW_FALLBACK_BASE}/communes.json`;
+        const candidates = [primaryUrl, fallbackUrl];
 
         let response: Response | null = null;
         for (const candidate of candidates) {
@@ -176,12 +180,65 @@ class LandParcelService {
               break;
             }
           } catch (err) {
-            console.warn('[LandParcelService] Index fetch failed:', candidate, err);
+            console.warn('[LandParcelService] Commune list fetch failed:', candidate, err);
           }
         }
 
         if (!response) {
-          throw new Error('Failed to load index from all sources');
+          throw new Error('Failed to load commune list');
+        }
+
+        const idle = (window as any).requestIdleCallback || ((cb: any) => setTimeout(cb, 0));
+        await new Promise((resolve) => idle(resolve));
+
+        const data = await response.json();
+        const communes = Array.isArray(data?.communes) ? data.communes : [];
+        this.communeListCache = communes.map((c: any) => String(c)).filter(Boolean);
+      } catch (err) {
+        console.error('[LandParcelService] Commune list load failed:', err);
+        this.communeListCache = [];
+        (window as any).LandParcelService = this;
+      }
+    })();
+
+    return this.communeListPromise;
+  }
+
+  async getCommuneList(): Promise<string[]> {
+    await this.loadCommuneList();
+    return this.communeListCache || [];
+  }
+
+  async loadIndexForMaXa(maXa: string) {
+    const key = String(maXa || '').trim();
+    if (!key) return;
+    if (this.indexCacheByMaXa[key]) return;
+    if (this.indexLoadPromises[key]) return this.indexLoadPromises[key];
+
+    this.indexLoadPromises[key] = (async () => {
+      try {
+        const baseUrl = (import.meta as any).env?.BASE_URL || '/';
+        const normalizedBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+        const shardUrl = `${this.SHARD_DIR}/${key}.json`;
+        const primaryUrl = (normalizedBase + shardUrl).replace(/\/\//g, '/');
+        const fallbackUrl = `${this.RAW_FALLBACK_BASE}/${key}.json`;
+        const candidates = [primaryUrl, fallbackUrl];
+
+        let response: Response | null = null;
+        for (const candidate of candidates) {
+          try {
+            const res = await fetch(candidate, { cache: 'no-store' });
+            if (res.ok) {
+              response = res;
+              break;
+            }
+          } catch (err) {
+            console.warn('[LandParcelService] Shard fetch failed:', candidate, err);
+          }
+        }
+
+        if (!response) {
+          throw new Error(`Failed to load shard for ${key}`);
         }
 
         const idle = (window as any).requestIdleCallback || ((cb: any) => setTimeout(cb, 0));
@@ -190,29 +247,32 @@ class LandParcelService {
         const data = await response.json();
         const index = data?.index;
         if (index && typeof index === 'object') {
-          this.indexCache = index as Record<string, [number, number]>;
+          this.indexCacheByMaXa[key] = index as Record<string, [number, number]>;
         } else {
-          console.warn('[LandParcelService] Invalid index format.');
-          this.indexCache = {};
+          console.warn('[LandParcelService] Invalid shard format:', key);
+          this.indexCacheByMaXa[key] = {};
         }
       } catch (err) {
-        console.error('[LandParcelService] Index load failed:', err);
-        this.indexCache = {};
+        console.error('[LandParcelService] Shard load failed:', err);
+        this.indexCacheByMaXa[key] = {};
         (window as any).LandParcelService = this;
       }
     })();
 
-    return this.indexLoadPromise;
+    return this.indexLoadPromises[key];
   }
 
-  async searchParcelByNumber(parcelNumber: string): Promise<[number, number] | null> {
+  async searchParcelByNumber(parcelNumber: string, maXa?: string): Promise<[number, number] | null> {
     if (!parcelNumber || !parcelNumber.trim()) return null;
 
-    await this.loadIndex();
+    const maXaKey = String(maXa || '').trim();
+    if (!maXaKey) return null;
+
+    await this.loadIndexForMaXa(maXaKey);
     const key = this.normalizeParcelKey(parcelNumber);
     if (!key) return null;
 
-    const index = this.indexCache || {};
+    const index = this.indexCacheByMaXa[maXaKey] || {};
     const coords = (index as Record<string, [number, number]>)[key];
     if (Array.isArray(coords) && coords.length === 2 && coords.every((n) => typeof n === 'number')) {
       const mapController = (window as any).MapController;

@@ -64,6 +64,9 @@ const App = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState<ParcelData[]>([]);
     const [isSearching, setIsSearching] = useState(false);
+    const [communeOptions, setCommuneOptions] = useState<string[]>([]);
+    const [selectedMaXa, setSelectedMaXa] = useState('');
+    const [isCommuneLoading, setIsCommuneLoading] = useState(false);
   
   const [listingForm, setListingForm] = useState({
     price: '',
@@ -150,6 +153,27 @@ const App = () => {
         service?.terminate();
       };
   }, [controller]);
+
+  useEffect(() => {
+    const landParcelService = (window as any).LandParcelService;
+    if (!landParcelService || typeof landParcelService.getCommuneList !== 'function') return;
+
+    setIsCommuneLoading(true);
+    landParcelService
+      .getCommuneList()
+      .then((list: string[]) => {
+        setCommuneOptions(Array.isArray(list) ? list : []);
+      })
+      .catch(() => setCommuneOptions([]))
+      .finally(() => setIsCommuneLoading(false));
+  }, []);
+
+  useEffect(() => {
+    if (!selectedMaXa) return;
+    const landParcelService = (window as any).LandParcelService;
+    if (!landParcelService || typeof landParcelService.loadIndexForMaXa !== 'function') return;
+    landParcelService.loadIndexForMaXa(selectedMaXa).catch(() => undefined);
+  }, [selectedMaXa]);
 
   // Haptic feedback simulation
   const triggerHaptic = (type: 'light' | 'medium' | 'heavy' = 'medium') => {
@@ -244,8 +268,12 @@ const App = () => {
           }
         }
 
-        if (landParcelService && typeof landParcelService.searchParcelByNumber === 'function') {
-          const coords = await landParcelService.searchParcelByNumber(normalizedKey);
+        if (
+          landParcelService &&
+          typeof landParcelService.searchParcelByNumber === 'function' &&
+          selectedMaXa
+        ) {
+          const coords = await landParcelService.searchParcelByNumber(normalizedKey, selectedMaXa);
           if (coords) {
             setSearchResults([]);
             setSearchQuery('');
@@ -406,6 +434,33 @@ const App = () => {
                 <button type="button" onClick={() => { setSearchQuery(''); setSearchResults([]); }} className="ml-2 p-1">
                   <X className="w-5 h-5 text-slate-400" />
                 </button>
+              )}
+            </div>
+
+            {/* Commune Selector for shard loading */}
+            <div className="border-t border-slate-100 px-4 py-2 bg-white/70">
+              <label className="block text-xs font-semibold text-slate-500 mb-1">
+                Mã xã
+              </label>
+              <select
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700"
+                value={selectedMaXa}
+                onChange={(e) => setSelectedMaXa(e.target.value)}
+                disabled={isCommuneLoading}
+              >
+                <option value="">
+                  {isCommuneLoading ? 'Đang tải danh sách xã...' : 'Chọn mã xã để tìm nhanh'}
+                </option>
+                {communeOptions.map((code) => (
+                  <option key={code} value={code}>
+                    Mã xã {code}
+                  </option>
+                ))}
+              </select>
+              {!selectedMaXa && searchQuery.trim() && (
+                <p className="mt-1 text-xs text-slate-500">
+                  Chọn mã xã để kích hoạt tải dữ liệu theo phân mảnh.
+                </p>
               )}
             </div>
           

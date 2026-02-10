@@ -1,7 +1,7 @@
 class LandParcelService {
   private indexCache: Record<string, [number, number]> | null = null;
   private indexLoadPromise: Promise<void> | null = null;
-  private readonly INDEX_URL = './data/search_index.json';
+  private readonly INDEX_URL = 'data/search_index.json';
 
   constructor() {
     (window as any).LandParcelService = this;
@@ -155,7 +155,7 @@ class LandParcelService {
 
     this.indexLoadPromise = (async () => {
       try {
-        const response = await fetch(url, { cache: 'no-store' });
+        const response = await fetch('data/search_index.json', { cache: 'no-store' });
         if (!response.ok) {
           throw new Error(`Failed to load index: ${response.status}`);
         }

@@ -229,6 +229,18 @@ const App = () => {
     
       setIsSearching(true);
       try {
+        const landParcelService = (window as any).LandParcelService;
+        const normalized = searchQuery.trim().replace(/\s+/g, ':');
+
+        if (landParcelService && typeof landParcelService.searchParcelByNumber === 'function') {
+          const coords = await landParcelService.searchParcelByNumber(normalized);
+          if (coords) {
+            setSearchResults([]);
+            setSearchQuery('');
+            return;
+          }
+        }
+
         const results = await searchService.searchParcels(searchQuery);
         setSearchResults(results);
       } catch (err) {

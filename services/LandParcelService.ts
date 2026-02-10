@@ -1,16 +1,16 @@
 class LandParcelService {
-  private static indexCache: Record<string, [number, number]> | null = null;
-  private static indexLoadPromise: Promise<void> | null = null;
-  private static readonly INDEX_URL = './data/search_index.json';
+  private indexCache: Record<string, [number, number]> | null = null;
+  private indexLoadPromise: Promise<void> | null = null;
+  private readonly INDEX_URL = './data/search_index.json';
 
-  static createEmptyFeatureCollection() {
+  createEmptyFeatureCollection() {
     return {
       type: 'FeatureCollection',
       features: []
     };
   }
 
-  static getPolygonCenter(geometry: any, fallback: [number, number]): [number, number] {
+  getPolygonCenter(geometry: any, fallback: [number, number]): [number, number] {
     if (geometry?.type !== 'Polygon' || !geometry.coordinates?.[0]?.[0]) {
       return fallback;
     }
@@ -25,12 +25,12 @@ class LandParcelService {
     ];
   }
 
-  static ensureListingLayers(map: any) {
+  ensureListingLayers(map: any) {
     if (!map || map.getSource('user-listings')) return;
 
     map.addSource('user-listings', {
       type: 'geojson',
-      data: LandParcelService.createEmptyFeatureCollection(),
+      data: this.createEmptyFeatureCollection(),
       cluster: true,
       clusterMaxZoom: 14,
       clusterRadius: 50
@@ -89,7 +89,7 @@ class LandParcelService {
     });
   }
 
-  static buildListingFeatures(snapshot: any, userProfiles: Record<string, any>) {
+  buildListingFeatures(snapshot: any, userProfiles: Record<string, any>) {
     return snapshot.docs
       .map((doc: any) => {
         try {
@@ -133,7 +133,7 @@ class LandParcelService {
       .filter(Boolean);
   }
 
-  static updateGeoJsonSource(map: any, sourceId: string, features: any[]) {
+  updateGeoJsonSource(map: any, sourceId: string, features: any[]) {
     if (!map) return;
 
     const source = map.getSource(sourceId) as any;
@@ -145,11 +145,11 @@ class LandParcelService {
     }
   }
 
-  static async loadIndex(url: string = LandParcelService.INDEX_URL) {
-    if (LandParcelService.indexCache) return;
-    if (LandParcelService.indexLoadPromise) return LandParcelService.indexLoadPromise;
+  async loadIndex(url: string = this.INDEX_URL) {
+    if (this.indexCache) return;
+    if (this.indexLoadPromise) return this.indexLoadPromise;
 
-    LandParcelService.indexLoadPromise = (async () => {
+    this.indexLoadPromise = (async () => {
       try {
         const response = await fetch(url, { cache: 'no-store' });
         if (!response.ok) {
@@ -159,28 +159,28 @@ class LandParcelService {
         const data = await response.json();
         const index = data?.index;
         if (index && typeof index === 'object') {
-          LandParcelService.indexCache = index as Record<string, [number, number]>;
+          this.indexCache = index as Record<string, [number, number]>;
         } else {
           console.warn('[LandParcelService] Invalid index format.');
-          LandParcelService.indexCache = {};
+          this.indexCache = {};
         }
       } catch (err) {
         console.error('[LandParcelService] Index load failed:', err);
-        LandParcelService.indexCache = {};
+        this.indexCache = {};
       }
     })();
 
-    return LandParcelService.indexLoadPromise;
+    return this.indexLoadPromise;
   }
 
-  static async searchParcelByNumber(parcelNumber: string): Promise<[number, number] | null> {
+  async searchParcelByNumber(parcelNumber: string): Promise<[number, number] | null> {
     if (!parcelNumber || !parcelNumber.trim()) return null;
 
-    await LandParcelService.loadIndex();
-    const key = LandParcelService.normalizeParcelKey(parcelNumber);
+    await this.loadIndex();
+    const key = this.normalizeParcelKey(parcelNumber);
     if (!key) return null;
 
-    const index = LandParcelService.indexCache || {};
+    const index = this.indexCache || {};
     const coords = (index as Record<string, [number, number]>)[key];
     if (Array.isArray(coords) && coords.length === 2 && coords.every((n) => typeof n === 'number')) {
       const mapController = (window as any).MapController;
@@ -193,7 +193,7 @@ class LandParcelService {
     return null;
   }
 
-  private static normalizeParcelKey(parcelNumber: string): string | null {
+  private normalizeParcelKey(parcelNumber: string): string | null {
     const trimmed = parcelNumber.trim();
     if (!trimmed) return null;
 
@@ -212,4 +212,4 @@ class LandParcelService {
   }
 }
 
-(window as any).LandParcelService = LandParcelService;
+(window as any).LandParcelService = new LandParcelService();

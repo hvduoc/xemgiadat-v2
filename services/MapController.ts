@@ -228,7 +228,7 @@ window.MapController = class MapController {
       if (!this.map) return;
     
       const StyleEngine = (window as any).StyleEngine;
-      const LandParcelService = (window as any).LandParcelService;
+      const landParcelService = (window as any).LandParcelService;
     
       // Tìm feature trong viewport hiện tại
       const features = this.map.querySourceFeatures(StyleEngine.SOURCE_ID, {
@@ -244,8 +244,8 @@ window.MapController = class MapController {
 
       if (targetFeature) {
         const fallback: [number, number] = [108.2022, 16.0544];
-        const center = LandParcelService
-          ? LandParcelService.getPolygonCenter(targetFeature.geometry, fallback)
+        const center = landParcelService?.getPolygonCenter
+          ? landParcelService.getPolygonCenter(targetFeature.geometry, fallback)
           : fallback;
 
         // Bay đến và zoom vào
@@ -299,13 +299,13 @@ window.MapController = class MapController {
      * Add listing layers to the map
      */
     private addListingLayers() {
-      const LandParcelService = (window as any).LandParcelService;
-      if (!LandParcelService) {
+      const landParcelService = (window as any).LandParcelService;
+      if (!landParcelService) {
         console.warn('[MapController] LandParcelService missing; listing layers not initialized.');
         return;
       }
 
-      LandParcelService.ensureListingLayers(this.map);
+      landParcelService.ensureListingLayers(this.map);
     }
 
     /**
@@ -360,9 +360,9 @@ window.MapController = class MapController {
           });
         }
 
-        const LandParcelService = (window as any).LandParcelService;
-        const features = LandParcelService
-          ? LandParcelService.buildListingFeatures(snapshot, userProfiles)
+        const landParcelService = (window as any).LandParcelService;
+        const features = landParcelService
+          ? landParcelService.buildListingFeatures(snapshot, userProfiles)
           : [];
 
         // Cache the results
@@ -395,9 +395,9 @@ window.MapController = class MapController {
      */
     private updateMapSource(features: any[]) {
       try {
-        const LandParcelService = (window as any).LandParcelService;
-        if (LandParcelService) {
-          LandParcelService.updateGeoJsonSource(this.map, 'user-listings', features);
+        const landParcelService = (window as any).LandParcelService;
+        if (landParcelService) {
+          landParcelService.updateGeoJsonSource(this.map, 'user-listings', features);
         }
       } catch (err) {
         console.error('[MapController] Failed to update map source:', err);

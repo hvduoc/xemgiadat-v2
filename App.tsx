@@ -46,8 +46,6 @@ const App = () => {
   const BANK_NAME = 'VCB';
   const BANK_HOLDER = 'ADMIN'; // TODO: Replace with actual account holder name
   
-    const [searchService, setSearchService] = useState<any>(null);
-  
   const [selectedParcel, setSelectedParcel] = useState(null as ParcelData | null);
   const [selectedListing, setSelectedListing] = useState(null as ListingData | null);
   const [view, setView] = useState('info' as 'info' | 'listing' | 'success' | 'listing-detail');
@@ -77,7 +75,6 @@ const App = () => {
     if (!mapContainerRef.current) return;
     const LinkService = (window as any).LinkService;
     const PriceService = (window as any).PriceService;
-      const SearchService = (window as any).SearchService;
     const initial = LinkService.getParams();
     
     controller.init(
@@ -142,13 +139,8 @@ const App = () => {
       });
     }
     
-      // Khởi tạo SearchService sau khi map đã load
-      const service = new SearchService(controller);
-      setSearchService(service);
-    
-      return () => {
-        service?.terminate();
-      };
+      // SearchService cũ đã bị xóa — dùng LandParcelService.searchV1
+      return () => {};
   }, [controller]);
 
 
@@ -231,13 +223,14 @@ const App = () => {
     
       setIsSearching(true);
       try {
+        console.log('🔍 Global Search Triggered:', searchQuery.trim());
         const landParcelService = (window as any).LandParcelService;
 
-        // === V1 Logic: Tra search_index.json → FlyTo + Highlight ===
+        // === V1 Logic: Quét 56 shard files → FlyTo + Highlight ===
         if (landParcelService && typeof landParcelService.searchV1 === 'function') {
-          const entry = await landParcelService.searchV1(searchQuery.trim());
-          if (entry) {
-            // Tìm thấy → bay ngay, không cần dropdown
+          const parcelFound = await landParcelService.searchV1(searchQuery.trim());
+          if (parcelFound) {
+            // Tìm thấy thửa đất → bay ngay, dừng tại đây
             setSearchResults([]);
             setSearchQuery('');
             setIsSearching(false);
@@ -245,13 +238,9 @@ const App = () => {
           }
         }
 
-        // Fallback: Tìm trong PMTiles viewport (SearchService cũ)
-        if (searchService) {
-          const results = await searchService.searchParcels(searchQuery);
-          setSearchResults(results);
-        } else {
-          setSearchResults([]);
-        }
+        // Fallback: Logic tìm kiếm tin đăng cũ
+        console.log('[Search] Không tìm thấy thửa đất, thử tìm tin đăng...');
+        setSearchResults([]);
       } catch (err) {
         console.error('Search failed:', err);
         setSearchResults([]);
@@ -619,7 +608,6 @@ const App = () => {
                       <p className="text-xs text-slate-400 font-medium">📢 Liên hệ quảng cáo tại đây</p>
                     </div>
                   </div>
-                </div>
               )}
 
               {view === 'listing' && selectedParcel && (

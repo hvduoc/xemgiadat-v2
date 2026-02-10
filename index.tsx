@@ -1,4 +1,14 @@
+// === Service Imports (sets window globals) ===
 import './services/LandParcelService';
+import './services/AIInsightService';
+import './services/BookmarkService';
+import './services/ImageService';
+import './services/PriceService';
+import './services/LinkService';
+import './services/MapModule';
+
+// === App Component (sets window.App) ===
+import './App';
 
 const React = (window as any).React;
 const ReactDOM = (window as any).ReactDOM;

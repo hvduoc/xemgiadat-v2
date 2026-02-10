@@ -64,9 +64,6 @@ const App = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState<ParcelData[]>([]);
     const [isSearching, setIsSearching] = useState(false);
-    const [communeOptions, setCommuneOptions] = useState<string[]>([]);
-    const [selectedMaXa, setSelectedMaXa] = useState('');
-    const [isCommuneLoading, setIsCommuneLoading] = useState(false);
   
   const [listingForm, setListingForm] = useState({
     price: '',
@@ -154,26 +151,7 @@ const App = () => {
       };
   }, [controller]);
 
-  useEffect(() => {
-    const landParcelService = (window as any).LandParcelService;
-    if (!landParcelService || typeof landParcelService.getCommuneList !== 'function') return;
 
-    setIsCommuneLoading(true);
-    landParcelService
-      .getCommuneList()
-      .then((list: string[]) => {
-        setCommuneOptions(Array.isArray(list) ? list : []);
-      })
-      .catch(() => setCommuneOptions([]))
-      .finally(() => setIsCommuneLoading(false));
-  }, []);
-
-  useEffect(() => {
-    if (!selectedMaXa) return;
-    const landParcelService = (window as any).LandParcelService;
-    if (!landParcelService || typeof landParcelService.loadIndexForMaXa !== 'function') return;
-    landParcelService.loadIndexForMaXa(selectedMaXa).catch(() => undefined);
-  }, [selectedMaXa]);
 
   // Haptic feedback simulation
   const triggerHaptic = (type: 'light' | 'medium' | 'heavy' = 'medium') => {
@@ -249,40 +227,31 @@ const App = () => {
 
     const handleSearch = async (e: React.FormEvent) => {
       e.preventDefault();
-      if (!searchQuery.trim() || !searchService) return;
+      if (!searchQuery.trim()) return;
     
       setIsSearching(true);
       try {
         const landParcelService = (window as any).LandParcelService;
-        const raw = searchQuery.trim();
-        const normalized = raw.replace(/\s+/g, ':');
-        let normalizedKey = normalized;
-        if (normalized.includes(':')) {
-          const parts = normalized.split(':').filter(Boolean);
-          if (parts.length >= 2) {
-            const soTo = parseInt(parts[0], 10);
-            const soThua = parseInt(parts[1], 10);
-            if (!Number.isNaN(soTo) && !Number.isNaN(soThua)) {
-              normalizedKey = `${soTo}:${soThua}`;
-            }
-          }
-        }
 
-        if (
-          landParcelService &&
-          typeof landParcelService.searchParcelByNumber === 'function' &&
-          selectedMaXa
-        ) {
-          const coords = await landParcelService.searchParcelByNumber(normalizedKey, selectedMaXa);
-          if (coords) {
+        // === V1 Logic: Tra search_index.json → FlyTo + Highlight ===
+        if (landParcelService && typeof landParcelService.searchV1 === 'function') {
+          const entry = await landParcelService.searchV1(searchQuery.trim());
+          if (entry) {
+            // Tìm thấy → bay ngay, không cần dropdown
             setSearchResults([]);
             setSearchQuery('');
+            setIsSearching(false);
             return;
           }
         }
 
-        const results = await searchService.searchParcels(searchQuery);
-        setSearchResults(results);
+        // Fallback: Tìm trong PMTiles viewport (SearchService cũ)
+        if (searchService) {
+          const results = await searchService.searchParcels(searchQuery);
+          setSearchResults(results);
+        } else {
+          setSearchResults([]);
+        }
       } catch (err) {
         console.error('Search failed:', err);
         setSearchResults([]);
@@ -437,32 +406,7 @@ const App = () => {
               )}
             </div>
 
-            {/* Commune Selector for shard loading */}
-            <div className="border-t border-slate-100 px-4 py-2 bg-white/70">
-              <label className="block text-xs font-semibold text-slate-500 mb-1">
-                Mã xã
-              </label>
-              <select
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700"
-                value={selectedMaXa}
-                onChange={(e) => setSelectedMaXa(e.target.value)}
-                disabled={isCommuneLoading}
-              >
-                <option value="">
-                  {isCommuneLoading ? 'Đang tải danh sách xã...' : 'Chọn mã xã để tìm nhanh'}
-                </option>
-                {communeOptions.map((code) => (
-                  <option key={code} value={code}>
-                    Mã xã {code}
-                  </option>
-                ))}
-              </select>
-              {!selectedMaXa && searchQuery.trim() && (
-                <p className="mt-1 text-xs text-slate-500">
-                  Chọn mã xã để kích hoạt tải dữ liệu theo phân mảnh.
-                </p>
-              )}
-            </div>
+
           
             {/* Search Results Dropdown */}
             {(isSearching || searchResults.length > 0) && (

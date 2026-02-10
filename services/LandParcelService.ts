@@ -1,12 +1,32 @@
+interface SearchIndexEntry {
+  lat: number;
+  lng: number;
+  maXa: string;
+  soTo: number;
+  soThua: number;
+  dienTich: number;
+}
+
+interface ParsedQuery {
+  soThua: number | null;
+  soTo: number | null;
+  raw: string;
+}
+
 class LandParcelService {
   private indexCacheByMaXa: Record<string, Record<string, [number, number]>> = {};
   private indexLoadPromises: Record<string, Promise<void>> = {};
   private communeListCache: string[] | null = null;
   private communeListPromise: Promise<void> | null = null;
+  private searchIndex: Record<string, SearchIndexEntry | SearchIndexEntry[]> | null = null;
+  private searchIndexPromise: Promise<void> | null = null;
   private readonly SHARD_DIR = 'data/parcels';
   private readonly COMMUNE_LIST_URL = 'data/parcels/communes.json';
+  private readonly SEARCH_INDEX_URL = 'data/search_index.json';
   private readonly RAW_FALLBACK_BASE =
     'https://raw.githubusercontent.com/hvduoc/xemgiadat-v2/main/public/data/parcels';
+  private readonly RAW_FALLBACK_INDEX =
+    'https://raw.githubusercontent.com/hvduoc/xemgiadat-v2/main/public/data/search_index.json';
 
   constructor() {
     (window as any).LandParcelService = this;
@@ -14,7 +34,205 @@ class LandParcelService {
     const idle = (window as any).requestIdleCallback || ((cb: any) => setTimeout(cb, 0));
     idle(() => {
       this.loadCommuneList().catch(() => undefined);
+      this.loadSearchIndex().catch(() => undefined);
     });
+  }
+
+  // =====================================================
+  // V1 PARSER: parseParcelQuery()
+  // Hỗ trợ: "123/45", "Thửa 123 Tờ 45", "Tờ 45 Thửa 123", "123" (số thửa đơn)
+  // =====================================================
+  parseParcelQuery(raw: string): ParsedQuery {
+    const input = (raw || '').trim();
+    if (!input) return { soThua: null, soTo: null, raw: input };
+
+    // Pattern 1: "123/45" → soThua=123, soTo=45
+    const slashMatch = input.match(/^(\d+)\s*\/\s*(\d+)$/);
+    if (slashMatch) {
+      return {
+        soThua: parseInt(slashMatch[1], 10),
+        soTo: parseInt(slashMatch[2], 10),
+        raw: input
+      };
+    }
+
+    // Pattern 2: "Thửa 123 Tờ 45" (case-insensitive, flexible whitespace)
+    const thuaToMatch = input.match(/th[uứửữụ]a\s*(\d+)\s*t[oờởỡọ]\s*(\d+)/i);
+    if (thuaToMatch) {
+      return {
+        soThua: parseInt(thuaToMatch[1], 10),
+        soTo: parseInt(thuaToMatch[2], 10),
+        raw: input
+      };
+    }
+
+    // Pattern 3: "Tờ 45 Thửa 123" (reversed order)
+    const toThuaMatch = input.match(/t[oờởỡọ]\s*(\d+)\s*th[uứửữụ]a\s*(\d+)/i);
+    if (toThuaMatch) {
+      return {
+        soThua: parseInt(toThuaMatch[2], 10),
+        soTo: parseInt(toThuaMatch[1], 10),
+        raw: input
+      };
+    }
+
+    // Pattern 4: "soTo:soThua" or "soTo soThua" (two numbers)
+    const twoNumMatch = input.match(/^(\d+)\s*[:\s]\s*(\d+)$/);
+    if (twoNumMatch) {
+      return {
+        soThua: parseInt(twoNumMatch[2], 10),
+        soTo: parseInt(twoNumMatch[1], 10),
+        raw: input
+      };
+    }
+
+    // Pattern 5: Số thửa đơn thuần "123"
+    const singleMatch = input.match(/^(\d+)$/);
+    if (singleMatch) {
+      return {
+        soThua: parseInt(singleMatch[1], 10),
+        soTo: null,
+        raw: input
+      };
+    }
+
+    return { soThua: null, soTo: null, raw: input };
+  }
+
+  // =====================================================
+  // V1 Search Index: Load & Lookup
+  // =====================================================
+  async loadSearchIndex(): Promise<void> {
+    if (this.searchIndex) return;
+    if (this.searchIndexPromise) return this.searchIndexPromise;
+
+    this.searchIndexPromise = (async () => {
+      try {
+        const baseUrl = (import.meta as any).env?.BASE_URL || './';
+        const normalizedBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+        const primaryUrl = (normalizedBase + this.SEARCH_INDEX_URL).replace(/\/\//g, '/');
+        const fallbackUrl = this.RAW_FALLBACK_INDEX;
+        const candidates = [primaryUrl, fallbackUrl];
+
+        let response: Response | null = null;
+        for (const candidate of candidates) {
+          try {
+            const res = await fetch(candidate, { cache: 'no-store' });
+            if (res.ok) {
+              response = res;
+              break;
+            }
+          } catch (err) {
+            console.warn('[LandParcelService] Search index fetch failed:', candidate);
+          }
+        }
+
+        if (!response) {
+          throw new Error('Failed to load search index');
+        }
+
+        this.searchIndex = await response.json();
+        console.log('[LandParcelService] ✅ Search index loaded');
+      } catch (err) {
+        console.error('[LandParcelService] Search index load failed:', err);
+        this.searchIndex = {};
+      }
+    })();
+
+    return this.searchIndexPromise;
+  }
+
+  /**
+   * V1 "Tìm là Bay": Tra cứu search_index.json → flyTo → highlight
+   * Tuyệt đối không cần chọn Mã Xã từ dropdown.
+   * @returns Entry tìm được hoặc null
+   */
+  async searchV1(query: string): Promise<SearchIndexEntry | null> {
+    await this.loadSearchIndex();
+    if (!this.searchIndex) return null;
+
+    const parsed = this.parseParcelQuery(query);
+    if (parsed.soThua === null) return null;
+
+    let entry: SearchIndexEntry | null = null;
+
+    // Ưu tiên lookup "soThua_soTo" (chính xác hơn)
+    if (parsed.soTo !== null) {
+      const compositeKey = `${parsed.soThua}_${parsed.soTo}`;
+      const found = this.searchIndex[compositeKey];
+      if (found) {
+        entry = Array.isArray(found) ? found[0] : found;
+      }
+    }
+
+    // Fallback: lookup "soThua" alone
+    if (!entry) {
+      const thuaKey = `${parsed.soThua}`;
+      const found = this.searchIndex[thuaKey];
+      if (found) {
+        entry = Array.isArray(found) ? found[0] : found;
+      }
+    }
+
+    if (!entry) return null;
+
+    // === FLY TO ===
+    const mapController = (window as any).MapController;
+    if (mapController && typeof mapController.flyToCoordinates === 'function') {
+      mapController.flyToCoordinates(entry.lng, entry.lat, 18);
+    }
+
+    // === AUTO HIGHLIGHT: fetch GeoJSON shard & vẽ ranh giới ===
+    this.highlightParcelAfterFly(entry);
+
+    return entry;
+  }
+
+  /**
+   * Sau khi FlyTo, tự động fetch GeoJSON tương ứng và highlight thửa.
+   */
+  private async highlightParcelAfterFly(entry: SearchIndexEntry): Promise<void> {
+    try {
+      const maXa = entry.maXa;
+      if (!maXa) return;
+
+      // Đảm bảo index cho mã xã đã được load
+      await this.loadIndexForMaXa(maXa);
+
+      // Đợi map bay xong (1.6s animation)
+      await new Promise(resolve => setTimeout(resolve, 1700));
+
+      const map = (window as any).MapController?.getMap?.();
+      if (!map) return;
+
+      const StyleEngine = (window as any).StyleEngine;
+      if (!StyleEngine) return;
+
+      // Query features tại viewport mới
+      const features = map.querySourceFeatures(StyleEngine.SOURCE_ID, {
+        sourceLayer: StyleEngine.SOURCE_LAYER
+      });
+
+      if (!features || features.length === 0) return;
+
+      // Tìm feature khớp soTo + soThua
+      const target = features.find((f: any) => {
+        const props = f.properties || {};
+        const fSoTo = parseInt(props['SoHieuToBanDo'] || props['Số hiệu tờ bản đồ'] || props.so_to || '0', 10);
+        const fSoThua = parseInt(props['SoThuTuThua'] || props['Số thửa'] || props.so_thua || '0', 10);
+        return fSoTo === entry.soTo && fSoThua === entry.soThua;
+      });
+
+      if (target) {
+        const parcelId = target.id || target.properties?.OBJECTID;
+        if (parcelId !== undefined) {
+          map.setFilter(StyleEngine.LAYER_HIGHLIGHT, ['==', ['id'], parcelId]);
+          console.log(`[LandParcelService] ✅ Highlighted thửa ${entry.soThua}, tờ ${entry.soTo}`);
+        }
+      }
+    } catch (err) {
+      console.warn('[LandParcelService] Highlight failed:', err);
+    }
   }
 
   createEmptyFeatureCollection() {
@@ -265,6 +483,13 @@ class LandParcelService {
   async searchParcelByNumber(parcelNumber: string, maXa?: string): Promise<[number, number] | null> {
     if (!parcelNumber || !parcelNumber.trim()) return null;
 
+    // === V1 Priority: Tra search_index.json trước (không cần maXa) ===
+    const v1Result = await this.searchV1(parcelNumber);
+    if (v1Result) {
+      return [v1Result.lng, v1Result.lat];
+    }
+
+    // === Fallback: Shard-based lookup nếu có maXa ===
     const maXaKey = String(maXa || '').trim();
     if (!maXaKey) return null;
 

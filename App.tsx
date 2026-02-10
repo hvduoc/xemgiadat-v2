@@ -230,10 +230,22 @@ const App = () => {
       setIsSearching(true);
       try {
         const landParcelService = (window as any).LandParcelService;
-        const normalized = searchQuery.trim().replace(/\s+/g, ':');
+        const raw = searchQuery.trim();
+        const normalized = raw.replace(/\s+/g, ':');
+        let normalizedKey = normalized;
+        if (normalized.includes(':')) {
+          const parts = normalized.split(':').filter(Boolean);
+          if (parts.length >= 2) {
+            const soTo = parseInt(parts[0], 10);
+            const soThua = parseInt(parts[1], 10);
+            if (!Number.isNaN(soTo) && !Number.isNaN(soThua)) {
+              normalizedKey = `${soTo}:${soThua}`;
+            }
+          }
+        }
 
         if (landParcelService && typeof landParcelService.searchParcelByNumber === 'function') {
-          const coords = await landParcelService.searchParcelByNumber(normalized);
+          const coords = await landParcelService.searchParcelByNumber(normalizedKey);
           if (coords) {
             setSearchResults([]);
             setSearchQuery('');

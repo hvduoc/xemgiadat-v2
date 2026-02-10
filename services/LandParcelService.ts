@@ -155,7 +155,9 @@ class LandParcelService {
 
     this.indexLoadPromise = (async () => {
       try {
-        const response = await fetch('data/search_index.json', { cache: 'no-store' });
+        const baseUrl = (import.meta as any).env?.BASE_URL || '/';
+        const fetchUrl = (baseUrl + 'data/search_index.json').replace('//', '/');
+        const response = await fetch(fetchUrl, { cache: 'no-store' });
         if (!response.ok) {
           throw new Error(`Failed to load index: ${response.status}`);
         }

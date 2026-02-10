@@ -23,7 +23,7 @@ This generates:
 - `dist/assets/index-[hash].js` - Compiled JavaScript bundle
 - `dist/assets/index-[hash].css` - Compiled CSS
 
-**Latest Build Assets:**
+**Example Build Output (hashes change with each build):**
 - JS: `index-CvOSCbj9.js` (271.23 kB, gzipped: 83.72 kB)
 - CSS: `index-C1XfJfxe.css` (1.28 kB, gzipped: 0.68 kB)
 

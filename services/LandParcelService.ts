@@ -1,10 +1,9 @@
-interface SearchIndexEntry {
+interface SearchResult {
   lat: number;
   lng: number;
   maXa: string;
   soTo: number;
   soThua: number;
-  dienTich: number;
 }
 
 interface ParsedQuery {
@@ -18,15 +17,10 @@ class LandParcelService {
   private indexLoadPromises: Record<string, Promise<void>> = {};
   private communeListCache: string[] | null = null;
   private communeListPromise: Promise<void> | null = null;
-  private searchIndex: Record<string, SearchIndexEntry | SearchIndexEntry[]> | null = null;
-  private searchIndexPromise: Promise<void> | null = null;
-  private readonly SHARD_DIR = 'data/parcels';
-  private readonly COMMUNE_LIST_URL = 'data/parcels/communes.json';
-  private readonly SEARCH_INDEX_URL = 'data/search_index.json';
+  private allShardsLoaded = false;
+  private allShardsPromise: Promise<void> | null = null;
   private readonly RAW_FALLBACK_BASE =
     'https://raw.githubusercontent.com/hvduoc/xemgiadat-v2/main/public/data/parcels';
-  private readonly RAW_FALLBACK_INDEX =
-    'https://raw.githubusercontent.com/hvduoc/xemgiadat-v2/main/public/data/search_index.json';
 
   constructor() {
     (window as any).LandParcelService = this;
@@ -34,7 +28,6 @@ class LandParcelService {
     const idle = (window as any).requestIdleCallback || ((cb: any) => setTimeout(cb, 0));
     idle(() => {
       this.loadCommuneList().catch(() => undefined);
-      this.loadSearchIndex().catch(() => undefined);
     });
   }
 
@@ -100,98 +93,105 @@ class LandParcelService {
   }
 
   // =====================================================
-  // V1 Search Index: Load & Lookup
+  // Load ALL shards (56 small files) for cross-commune search
   // =====================================================
-  async loadSearchIndex(): Promise<void> {
-    if (this.searchIndex) return;
-    if (this.searchIndexPromise) return this.searchIndexPromise;
+  async loadAllShards(): Promise<void> {
+    if (this.allShardsLoaded) return;
+    if (this.allShardsPromise) return this.allShardsPromise;
 
-    this.searchIndexPromise = (async () => {
+    this.allShardsPromise = (async () => {
       try {
-        const baseUrl = (import.meta as any).env?.BASE_URL || './';
-        const normalizedBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
-        const primaryUrl = (normalizedBase + this.SEARCH_INDEX_URL).replace(/\/\//g, '/');
-        const fallbackUrl = this.RAW_FALLBACK_INDEX;
-        const candidates = [primaryUrl, fallbackUrl];
-
-        let response: Response | null = null;
-        for (const candidate of candidates) {
-          try {
-            const res = await fetch(candidate, { cache: 'no-store' });
-            if (res.ok) {
-              response = res;
-              break;
-            }
-          } catch (err) {
-            console.warn('[LandParcelService] Search index fetch failed:', candidate);
-          }
+        await this.loadCommuneList();
+        const communes = this.communeListCache || [];
+        if (communes.length === 0) {
+          console.warn('[LandParcelService] No communes found, cannot load shards');
+          return;
         }
 
-        if (!response) {
-          throw new Error('Failed to load search index');
-        }
-
-        this.searchIndex = await response.json();
-        console.log('[LandParcelService] ✅ Search index loaded');
+        // Load all shards in parallel (56 small files ~200-500KB each)
+        await Promise.all(communes.map(maXa => this.loadIndexForMaXa(maXa)));
+        this.allShardsLoaded = true;
+        console.log(`[LandParcelService] ✅ All ${communes.length} shards loaded`);
       } catch (err) {
-        console.error('[LandParcelService] Search index load failed:', err);
-        this.searchIndex = {};
+        console.error('[LandParcelService] Failed to load all shards:', err);
       }
     })();
 
-    return this.searchIndexPromise;
+    return this.allShardsPromise;
   }
 
   /**
-   * V1 "Tìm là Bay": Tra cứu search_index.json → flyTo → highlight
+   * V1 "Tìm là Bay": Quét 56 shard files → flyTo → highlight
    * Tuyệt đối không cần chọn Mã Xã từ dropdown.
-   * @returns Entry tìm được hoặc null
+   * @returns SearchResult hoặc null
    */
-  async searchV1(query: string): Promise<SearchIndexEntry | null> {
-    await this.loadSearchIndex();
-    if (!this.searchIndex) return null;
-
+  async searchV1(query: string): Promise<SearchResult | null> {
     const parsed = this.parseParcelQuery(query);
     if (parsed.soThua === null) return null;
 
-    let entry: SearchIndexEntry | null = null;
+    // Ensure all shards are loaded for cross-commune search
+    await this.loadAllShards();
 
-    // Ưu tiên lookup "soThua_soTo" (chính xác hơn)
+    let result: SearchResult | null = null;
+
+    // Quét toàn bộ 56 shard, lookup O(1) per shard
     if (parsed.soTo !== null) {
-      const compositeKey = `${parsed.soThua}_${parsed.soTo}`;
-      const found = this.searchIndex[compositeKey];
-      if (found) {
-        entry = Array.isArray(found) ? found[0] : found;
+      // Có cả soTo → key chính xác "soTo:soThua"
+      const shardKey = `${parsed.soTo}:${parsed.soThua}`;
+      for (const [maXa, index] of Object.entries(this.indexCacheByMaXa)) {
+        const coords = index[shardKey];
+        if (coords) {
+          result = {
+            lng: coords[0],
+            lat: coords[1],
+            maXa,
+            soTo: parsed.soTo,
+            soThua: parsed.soThua
+          };
+          break;
+        }
       }
     }
 
-    // Fallback: lookup "soThua" alone
-    if (!entry) {
-      const thuaKey = `${parsed.soThua}`;
-      const found = this.searchIndex[thuaKey];
-      if (found) {
-        entry = Array.isArray(found) ? found[0] : found;
+    // Fallback: chỉ có soThua → quét tất cả keys trong mỗi shard
+    if (!result && parsed.soThua !== null) {
+      const thuaSuffix = `:${parsed.soThua}`;
+      for (const [maXa, index] of Object.entries(this.indexCacheByMaXa)) {
+        for (const [key, coords] of Object.entries(index)) {
+          if (key.endsWith(thuaSuffix)) {
+            const soTo = parseInt(key.split(':')[0], 10);
+            result = {
+              lng: coords[0],
+              lat: coords[1],
+              maXa,
+              soTo,
+              soThua: parsed.soThua
+            };
+            break;
+          }
+        }
+        if (result) break;
       }
     }
 
-    if (!entry) return null;
+    if (!result) return null;
 
     // === FLY TO ===
     const mapController = (window as any).MapController;
     if (mapController && typeof mapController.flyToCoordinates === 'function') {
-      mapController.flyToCoordinates(entry.lng, entry.lat, 18);
+      mapController.flyToCoordinates(result.lng, result.lat, 18);
     }
 
-    // === AUTO HIGHLIGHT: fetch GeoJSON shard & vẽ ranh giới ===
-    this.highlightParcelAfterFly(entry);
+    // === AUTO HIGHLIGHT ===
+    this.highlightParcelAfterFly(result);
 
-    return entry;
+    return result;
   }
 
   /**
    * Sau khi FlyTo, tự động fetch GeoJSON tương ứng và highlight thửa.
    */
-  private async highlightParcelAfterFly(entry: SearchIndexEntry): Promise<void> {
+  private async highlightParcelAfterFly(entry: SearchResult): Promise<void> {
     try {
       const maXa = entry.maXa;
       if (!maXa) return;
@@ -377,15 +377,13 @@ class LandParcelService {
     }
   }
 
-  async loadCommuneList(url: string = this.COMMUNE_LIST_URL) {
+  async loadCommuneList() {
     if (this.communeListCache) return;
     if (this.communeListPromise) return this.communeListPromise;
 
     this.communeListPromise = (async () => {
       try {
-        const baseUrl = (import.meta as any).env?.BASE_URL || './';
-        const normalizedBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
-        const primaryUrl = (normalizedBase + url).replace(/\/\//g, '/');
+        const primaryUrl = './data/parcels/communes.json';
         const fallbackUrl = `${this.RAW_FALLBACK_BASE}/communes.json`;
         const candidates = [primaryUrl, fallbackUrl];
 
@@ -435,10 +433,7 @@ class LandParcelService {
 
     this.indexLoadPromises[key] = (async () => {
       try {
-        const baseUrl = (import.meta as any).env?.BASE_URL || './';
-        const normalizedBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
-        const shardUrl = `${this.SHARD_DIR}/${key}.json`;
-        const primaryUrl = (normalizedBase + shardUrl).replace(/\/\//g, '/');
+        const primaryUrl = `./data/parcels/${key}.json`;
         const fallbackUrl = `${this.RAW_FALLBACK_BASE}/${key}.json`;
         const candidates = [primaryUrl, fallbackUrl];
 
@@ -483,28 +478,10 @@ class LandParcelService {
   async searchParcelByNumber(parcelNumber: string, maXa?: string): Promise<[number, number] | null> {
     if (!parcelNumber || !parcelNumber.trim()) return null;
 
-    // === V1 Priority: Tra search_index.json trước (không cần maXa) ===
+    // === V1 Priority: Quét shards → FlyTo + Highlight (không cần maXa) ===
     const v1Result = await this.searchV1(parcelNumber);
     if (v1Result) {
       return [v1Result.lng, v1Result.lat];
-    }
-
-    // === Fallback: Shard-based lookup nếu có maXa ===
-    const maXaKey = String(maXa || '').trim();
-    if (!maXaKey) return null;
-
-    await this.loadIndexForMaXa(maXaKey);
-    const key = this.normalizeParcelKey(parcelNumber);
-    if (!key) return null;
-
-    const index = this.indexCacheByMaXa[maXaKey] || {};
-    const coords = (index as Record<string, [number, number]>)[key];
-    if (Array.isArray(coords) && coords.length === 2 && coords.every((n) => typeof n === 'number')) {
-      const mapController = (window as any).MapController;
-      if (mapController && typeof mapController.flyToCoordinates === 'function') {
-        mapController.flyToCoordinates(coords[0], coords[1], 18);
-      }
-      return coords as [number, number];
     }
 
     return null;

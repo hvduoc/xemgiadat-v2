@@ -44,9 +44,7 @@
     <!-- Core Libraries -->
     <link href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
     <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.js" onload="window.__trackCDN('maplibregl', true)" onerror="window.__trackCDN('maplibregl', false)"></script>
-    <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js" onload="window.__trackCDN('react', true)" onerror="window.__trackCDN('react', false)"></script>
-    <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js" onload="window.__trackCDN('react-dom', true)" onerror="window.__trackCDN('react-dom', false)"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.23.5/babel.min.js" onload="window.__trackCDN('babel', true)" onerror="window.__trackCDN('babel', false)"></script>
+    <!-- React & Babel CDN REMOVED — now bundled by Vite (React 19) -->
     <script src="https://cdn.tailwindcss.com" onerror="console.warn('[CDN] Tailwind CDN failed')"></script>
     
     <!-- Firebase (Compat SDK) + FirebaseUI -->
@@ -398,8 +396,7 @@
         console.log('[Init] LandParcelService legacy inline REMOVED — using compiled module');
     </script>
 
-    <!-- Compiled App (Vite build output) -->
-    <link rel="stylesheet" href="./assets/index.css" />
-    <script type="module" src="./assets/index.js"></script>
+    <!-- Vite Entry Point -->
+    <script type="module" src="./index.tsx"></script>
 </body>
 </html>

@@ -1,8 +1,5 @@
-
-const React = (window as any).React;
-const { useEffect, useRef, useState, useMemo } = React;
-const lucide = (window as any).lucideReact || {};
-const {
+import React, { useEffect, useRef, useState, useMemo } from 'react';
+import {
   MapPin,
   Share2,
   X,
@@ -29,7 +26,7 @@ const {
   Video,
   Scissors,
   QrCode
-} = lucide;
+} from 'lucide-react';
 
 const App = () => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -1009,4 +1006,4 @@ const App = () => {
   );
 };
 
-(window as any).App = App;
+export default App;

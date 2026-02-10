@@ -1,3 +1,6 @@
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+
 // === Service Imports (sets window globals) ===
 import './services/LandParcelService';
 import './services/AIInsightService';
@@ -7,11 +10,8 @@ import './services/PriceService';
 import './services/LinkService';
 import './services/MapModule';
 
-// === App Component (sets window.App) ===
-import './App';
-
-const React = (window as any).React;
-const ReactDOM = (window as any).ReactDOM;
+// === App Component ===
+import App from './App';
 
 /**
  * CẦU CHÌ BẢO VỆ: bypassLocation
@@ -58,10 +58,9 @@ const bypassLocation = () => {
 
 bypassLocation();
 
-const App = (window as any).App;
 const rootElement = document.getElementById('root');
 if (rootElement) {
-  const root = ReactDOM.createRoot(rootElement);
+  const root = createRoot(rootElement);
   root.render(
     <React.StrictMode>
       <App />

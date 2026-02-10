@@ -6,6 +6,16 @@ export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
     return {
       base: './',
+      build: {
+        emptyOutDir: true,
+        rollupOptions: {
+          output: {
+            entryFileNames: 'assets/index.js',
+            chunkFileNames: 'assets/[name].js',
+            assetFileNames: 'assets/[name][extname]',
+          },
+        },
+      },
       server: {
         port: 3000,
         host: '0.0.0.0',

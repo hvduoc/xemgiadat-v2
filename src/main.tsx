@@ -18,6 +18,8 @@ console.log('[main.tsx] PMTiles module loaded');
 console.log('[main.tsx] Loading services...');
 import '../services/LandParcelService';
 console.log('[main.tsx] ✓ LandParcelService loaded');
+import '../services/MapController';
+console.log('[main.tsx] ✓ MapController loaded');
 import '../services/AIInsightService';
 console.log('[main.tsx] ✓ AIInsightService loaded');
 import '../services/BookmarkService';

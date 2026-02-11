@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>XemGiaDat V5.1 - GIS Standalone Pro</title>
+    
+    <!-- CDNs ĐIỀU KIỆN TIÊN QUYẾT -->
+    
+    <!-- Critical Initialization utilities (INLINED for reliability) -->
+    <script>
+    /**
+     * XemGiaDat V2 - Critical Initialization (Inlined)
+     * MUST be inline to ensure app reliability even if external files fail
+     */
+    (function() {
+      'use strict';
+
+      console.log('[INIT] XemGiaDat v2 initialization started (Vector Parcels mode)');
+
+      /**
+       * 1. CDN LOAD STATUS TRACKER
+       */
+      window.__CDN_LOAD_STATUS__ = {};
+      window.__trackCDN = function(name, success) {
+        window.__CDN_LOAD_STATUS__[name] = success;
+        console.log('[CDN] ' + name + ': ' + (success ? '✓ OK' : '✗ FAILED'));
+      };
+
+      console.log('[INIT] ✓ Critical utilities initialized inline');
+    })();
+    </script>
+    
+    <!-- Initialization utilities (refactored) - defer for non-blocking load -->
+    <script defer src="./src/scripts/init.js" onerror="console.warn('[Init] Extended utilities failed to load, continuing with core functionality')"></script>
+    
+    <!-- Core Libraries -->
+    <link href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.js" onload="window.__trackCDN('maplibregl', true)" onerror="window.__trackCDN('maplibregl', false)"></script>
+    <!-- React & Babel CDN REMOVED — now bundled by Vite (React 19) -->
+    <script src="https://cdn.tailwindcss.com" onerror="console.warn('[CDN] Tailwind CDN failed')"></script>
+    
+    <!-- Firebase (Compat SDK) + FirebaseUI -->
+    <link rel="stylesheet" href="https://www.gstatic.com/firebasejs/ui/6.0.2/firebase-ui-auth.css" />
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-analytics-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/ui/6.0.2/firebase-ui-auth.js"></script>
+    
+    <!-- PMTiles Setup (UMD build from UNPKG) -->
+    <script src="https://unpkg.com/pmtiles@3.2.0/dist/pmtiles.js" onload="window.__trackCDN && window.__trackCDN('pmtiles', true)" onerror="window.__trackCDN && window.__trackCDN('pmtiles', false)"></script>
+    <script>
+        (function registerPmtiles() {
+            if (!window.pmtiles) {
+                console.warn('[PMTiles] Global not available');
+                return;
+            }
+
+            console.log('[PMTiles] ✓ Loaded via global script:', window.pmtiles);
+
+            const registerProtocol = () => {
+                const protocol = new window.pmtiles.Protocol();
+                window.maplibregl.addProtocol("pmtiles", protocol.tile);
+                window.__pmtiles_registered = true;
+                console.log('[PMTiles] ✓ Protocol registered');
+            };
+
+            if (window.maplibregl) {
+                registerProtocol();
+            } else {
+                const checkMapLibre = setInterval(() => {
+                    if (window.maplibregl) {
+                        clearInterval(checkMapLibre);
+                        registerProtocol();
+                    }
+                }, 100);
+            }
+        })();
+    </script>
+
+    <!-- Main Application Styles (Refactored) -->
+  <script type="module" crossorigin src="./assets/index-ChiD2Z7X.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-C1XfJfxe.css">
+</head>
+<body>
+    <div id="root"></div>
+    <script>
+
+        /**
+         * 2. MAP CONTROLLER (Inline Implementation)
+         */
+        const normalizeParcelProps = (props) => {
+            // PMTiles actual property names (from log): SoThuTuThua, SoHieuToBanDo, DienTich, KyHieuMucDichSuDung
+            const so_thua = String(props.SoThuTuThua || props['Số thửa'] || props.soThua || props.so_thua || '');
+            const so_to = String(props.SoHieuToBanDo || props['Số hiệu tờ bản đồ'] || props.soTo || props.so_to || '');
+            const muc_dich = props.KyHieuMucDichSuDung || props['Ký hiệu mục đích sử dụng'] || props.loaiDat || props.muc_dich || 'Chưa rõ';
+            const dien_tich_raw = props.DienTich ?? props['Diện tích'] ?? props.dienTich ?? props.dien_tich ?? props.area ?? props.SHAPE_Area ?? props.Shape_Area ?? 0;
+            const dien_tich = parseFloat(dien_tich_raw) || 0;
+            const dia_chi_raw = props['Địa chỉ'] || props.diaChi || props.dia_chi || props.DiaChi || '';
+            const dia_chi = (dia_chi_raw && dia_chi_raw !== 'Null' && dia_chi_raw !== 'null') ? dia_chi_raw : 'Chưa có';
+            const ma_xa = String(props.MaXa || props['Mã xã'] || props.maXa || props.ma_xa || '');
+            const object_id = props.OBJECTID || props.objectid || props.ObjectId || props.id || props.ID || '';
+            
+            return {
+                so_thua,
+                so_to,
+                muc_dich,
+                dien_tich,
+                dia_chi,
+                ma_xa,
+                object_id
+            };
+        };
+
+        /**
+         * 3. HAVERSINE DISTANCE CALCULATION (adapted from old project)
+         * Calculate distance between two lat/lng points in meters
+         */
+        const calculateDistance = (lat1, lon1, lat2, lon2) => {
+            const R = 6371000; // Earth radius in meters
+            const toRad = (deg) => deg * Math.PI / 180;
+            const dLat = toRad(lat2 - lat1);
+            const dLon = toRad(lon2 - lon1);
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+                      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        };
+
+        /**
+         * 4. DIMENSION DRAWER (adapted from old project for MapLibre)
+         * Draw dimension labels on polygon edges
+         */
+        const clearDimensionLabels = () => {
+            const container = document.querySelector('.maplibregl-canvas')?.parentElement;
+            if (container) {
+                container.querySelectorAll('.dimension-label-container').forEach(el => el.remove());
+            }
+        };
+
+        // Store currently selected feature for redrawing on zoom/pan
+        let selectedFeatureForDimensions = null;
+        
+        // Expose for React component to access
+        window.__clearDimensionsAndHighlight = (map) => {
+            clearDimensionLabels();
+            selectedFeatureForDimensions = null;
+            if (map && map.getLayer) {
+                try {
+                    map.setFilter('parcels-highlight', ['==', 'OBJECTID', -1]);
+                    map.setFilter('parcels-highlight-fill', ['==', 'OBJECTID', -1]);
+                } catch (e) {
+                    console.warn('[Cleanup] Could not clear highlight:', e);
+                }
+            }
+        };
+
+        // Helper function to create fallback marker and show bottom sheet
+        const createFallbackMarker = (map, lng, lat, errorType = 'not_found') => {
+            const fallbackMarker = new maplibregl.Marker({ color: '#ef4444' })
+                .setLngLat([lng, lat])
+                .addTo(map);
+            
+            return {
+                id: 'fallback-' + crypto.randomUUID(),
+                so_thua: 'N/A',
+                so_to: 'N/A',
+                dien_tich: 'N/A',
+                muc_dich: errorType === 'error' ? 'Lỗi tải dữ liệu' : 'Chưa xác định',
+                dia_chi: `Tọa độ: ${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+                ma_xa: '',
+                coordinates: [lng, lat],
+                isFallback: true
+            };
+        };
+
+        const drawDimensions = (feature, map) => {
+            clearDimensionLabels();
+            
+            if (!feature?.geometry?.coordinates || !map) return;
+            
+            // Store feature for redrawing on map move
+            selectedFeatureForDimensions = feature;
+            
+            // Extract coordinates based on geometry type
+            let coords = feature.geometry.type === 'Polygon'
+                ? feature.geometry.coordinates?.[0]
+                : feature.geometry.coordinates?.[0]?.[0];
+                
+            if (!Array.isArray(coords) || coords.length < 2) return;
+            
+            const MIN_DISPLAY_DIST = 2; // meters threshold
+            const container = document.querySelector('.maplibregl-canvas')?.parentElement;
+            if (!container) return;
+            
+            let shortGroup = [];
+            let totalShortDist = 0;
+            
+            const drawLabel = (points, dist) => {
+                // Calculate center (midpoint) of points
+                const flat = points.flat();
+                const midIdx = Math.floor(flat.length / 2);
+                const mid = flat.length % 2 === 0
+                    ? [
+                        (flat[midIdx - 1][0] + flat[midIdx][0]) / 2,
+                        (flat[midIdx - 1][1] + flat[midIdx][1]) / 2
+                    ]
+                    : flat[midIdx];
+                
+                try {
+                    // Convert to screen coordinates using MapLibre projection
+                    const screenPos = map.project([mid[0], mid[1]]);
+                    
+                    // Create marker element
+                    const marker = document.createElement('div');
+                    marker.className = 'dimension-label-container';
+                    marker.innerHTML = `<div class="dimension-label">${Math.round(dist)}m</div>`;
+                    marker.style.left = screenPos.x + 'px';
+                    marker.style.top = screenPos.y + 'px';
+                    
+                    container.appendChild(marker);
+                } catch (e) {
+                    console.warn('[Dimensions] Failed to project coordinates:', e);
+                }
+            };
+            
+            // Process each edge
+            for (let i = 0; i < coords.length - 1; i++) {
+                const p1 = coords[i];
+                const p2 = coords[i + 1];
+                const dist = calculateDistance(p1[1], p1[0], p2[1], p2[0]);
+                
+                if (dist < MIN_DISPLAY_DIST) {
+                    // Group short edges
+                    shortGroup.push([p1, p2]);
+                    totalShortDist += dist;
+                } else {
+                    // Flush short group if accumulated distance is significant
+                    if (shortGroup.length > 0 && totalShortDist >= MIN_DISPLAY_DIST) {
+                        drawLabel(shortGroup, totalShortDist);
+                    }
+                    shortGroup = [];
+                    totalShortDist = 0;
+                    
+                    // Draw long edge
+                    drawLabel([[p1, p2]], dist);
+                }
+            }
+            
+            // Flush remaining short group
+            if (shortGroup.length > 0 && totalShortDist >= MIN_DISPLAY_DIST) {
+                drawLabel(shortGroup, totalShortDist);
+            }
+            
+            console.log('[Dimensions] ✓ Drawn on parcel');
+        };
+
+        // [REMOVED] window.MapController inline - now imported from compiled services/MapController.ts
+        console.log('[Init] MapController now loaded from compiled module');
+
+        // [REMOVED] SearchModule inline - now using compiled SearchService from App.tsx
+
+        // [REMOVED] SearchService inline - now using LandParcelService.searchV1 from compiled code
+
+        /**
+         * 5. DATE FORMATTER (Inline Implementation)
+         */
+        window.DateFormatter = {
+            formatDateVN: (timestamp) => {
+                try {
+                    let date;
+                    
+                    if (timestamp && typeof timestamp === 'object' && 'toDate' in timestamp) {
+                        date = timestamp.toDate();
+                    } else if (typeof timestamp === 'number') {
+                        date = new Date(timestamp);
+                    } else if (timestamp instanceof Date) {
+                        date = timestamp;
+                    } else {
+                        return 'N/A';
+                    }
+
+                    const now = new Date();
+                    const diffMs = now.getTime() - date.getTime();
+                    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+                    if (diffDays === 0) return 'Vừa xong';
+                    if (diffDays < 7) return `${diffDays} ngày trước`;
+
+                    const day = date.getDate().toString().padStart(2, '0');
+                    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+                    const year = date.getFullYear();
+                    return `${day}/${month}/${year}`;
+                } catch (error) {
+                    console.error('Date formatting error:', error);
+                    return 'N/A';
+                }
+            },
+            
+            isOldListing: (timestamp) => {
+                try {
+                    let date;
+                    
+                    if (timestamp && typeof timestamp === 'object' && 'toDate' in timestamp) {
+                        date = timestamp.toDate();
+                    } else if (typeof timestamp === 'number') {
+                        date = new Date(timestamp);
+                    } else if (timestamp instanceof Date) {
+                        date = timestamp;
+                    } else {
+                        return false;
+                    }
+
+                    const now = new Date();
+                    const diffMs = now.getTime() - date.getTime();
+                    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+                    return diffDays > 30;
+                } catch (error) {
+                    console.error('Date check error:', error);
+                    return false;
+                }
+            }
+        };
+
+        // [REMOVED] LandParcelService inline - now using compiled LandParcelService.ts
+        console.log('[Init] LandParcelService legacy inline REMOVED — using compiled module');
+    </script>
+
+    <!-- Vite Entry Point -->
+</body>
+</html>

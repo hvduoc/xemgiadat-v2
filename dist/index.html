@@ -370,22 +370,6 @@
         console.log('[Init] LandParcelService legacy inline REMOVED — using compiled module');
     </script>
 
-    <!-- Vite Entry Point -->
-    <script>
-        (function() {
-            var isLocalhost = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-            var basePath = isLocalhost ? './' : './dist/';
-            var cssHref = isLocalhost ? './src/styles/main.css' : basePath + 'assets/index.css';
-            var scriptSrc = isLocalhost ? './src/main.js' : basePath + 'assets/index.js';
-            var stylesheet = document.getElementById('app-stylesheet');
-            if (stylesheet) {
-                stylesheet.href = cssHref;
-            }
-            var script = document.createElement('script');
-            script.type = 'module';
-            script.src = scriptSrc;
-            document.body.appendChild(script);
-        })();
-    </script>
+    <!-- Main React Entry Point -->
 </body>
 </html>

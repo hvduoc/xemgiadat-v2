@@ -3,20 +3,36 @@
  * Initializes React app and all services
  */
 
+console.log('[main.tsx] ENTRY - File loaded');
+
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 
+console.log('[main.tsx] React imports loaded');
+
 // === Service Imports (sets window globals) ===
+console.log('[main.tsx] Loading services...');
 import '../services/LandParcelService';
+console.log('[main.tsx] ✓ LandParcelService loaded');
 import '../services/AIInsightService';
+console.log('[main.tsx] ✓ AIInsightService loaded');
 import '../services/BookmarkService';
+console.log('[main.tsx] ✓ BookmarkService loaded');
 import '../services/ImageService';
+console.log('[main.tsx] ✓ ImageService loaded');
 import '../services/PriceService';
+console.log('[main.tsx] ✓ PriceService loaded');
 import '../services/LinkService';
+console.log('[main.tsx] ✓ LinkService loaded');
 import '../services/MapModule';
+console.log('[main.tsx] ✓ MapModule loaded');
+
+console.log('[main.tsx] Services imports completed');
 
 // === App Component ===
+console.log('[main.tsx] Importing App component...');
 import App from '../App';
+console.log('[main.tsx] App component imported:', App);
 
 /**
  * CẦU CHÌ BẢO VỆ: bypassLocation
@@ -61,19 +77,31 @@ const bypassLocation = () => {
   }
 };
 
+console.log('[main.tsx] Running bypassLocation...');
 bypassLocation();
+console.log('[main.tsx] bypassLocation completed');
 
 // Initialize React app
+console.log('[main.tsx] Looking for root element...');
 const rootElement = document.getElementById('root');
+console.log('[main.tsx] Root element found:', rootElement);
+
 if (rootElement) {
-  console.log('[App] Initializing React root...');
-  const root = createRoot(rootElement);
-  root.render(
-    <React.StrictMode>
-      <App />
-    </React.StrictMode>
-  );
-  console.log('[App] ✓ React app mounted');
+  console.log('[main.tsx] ROOT ELEMENT FOUND - Initializing React root...');
+  try {
+    const root = createRoot(rootElement);
+    console.log('[main.tsx] createRoot created:', root);
+    
+    console.log('[main.tsx] Rendering App component...');
+    root.render(
+      <React.StrictMode>
+        <App />
+      </React.StrictMode>
+    );
+    console.log('[main.tsx] ✓ React app render() call completed');
+  } catch (renderError) {
+    console.error('[main.tsx] ✗ ERROR during React render:', renderError);
+  }
 } else {
-  console.error('[App] Root element not found!');
+  console.error('[main.tsx] ✗ ROOT ELEMENT NOT FOUND - Cannot mount React app!');
 }

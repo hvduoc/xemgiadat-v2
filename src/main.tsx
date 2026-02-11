@@ -1,3 +1,8 @@
+/**
+ * Main entry point for XemGiaDat v2
+ * Initializes React app and all services
+ */
+
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 
@@ -11,7 +16,7 @@ import '../services/LinkService';
 import '../services/MapModule';
 
 // === App Component ===
-import '../App';
+import App from '../App';
 
 /**
  * CẦU CHÌ BẢO VỆ: bypassLocation
@@ -35,7 +40,7 @@ const bypassLocation = () => {
     // Đặt vào biến toàn cục để các service khác sử dụng
     (window as any).__SAFE_LOCATION__ = fakeLoc;
 
-    // Cố gắng ghi đè bằng Proxy (Cảnh báo: Có thể bị trình duyệt chặn ở một số môi trường)
+    // Cố gắng ghi đè bằng Proxy
     try {
       const locationProxy = new Proxy(window.location, {
         get: (target, prop) => {
@@ -49,21 +54,26 @@ const bypassLocation = () => {
         enumerable: true
       });
     } catch (e) {
-      console.warn('Location proxy assignment restricted, using fallback.');
+      console.warn('[Bypass] Location proxy assignment restricted, using fallback.');
     }
   } catch (e) {
-    console.error('Bypass location failed:', e);
+    console.error('[Bypass] Failed:', e);
   }
 };
 
 bypassLocation();
 
+// Initialize React app
 const rootElement = document.getElementById('root');
 if (rootElement) {
+  console.log('[App] Initializing React root...');
   const root = createRoot(rootElement);
   root.render(
     <React.StrictMode>
       <App />
     </React.StrictMode>
   );
+  console.log('[App] ✓ React app mounted');
+} else {
+  console.error('[App] Root element not found!');
 }

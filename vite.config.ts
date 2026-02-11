@@ -11,9 +11,9 @@ export default defineConfig(({ mode }) => {
         emptyOutDir: true,
         rollupOptions: {
           output: {
-            entryFileNames: 'assets/index-[hash].js',
-            chunkFileNames: 'assets/[name]-[hash].js',
-            assetFileNames: 'assets/[name]-[hash][extname]',
+            entryFileNames: 'assets/index.js',
+            chunkFileNames: 'assets/[name].js',
+            assetFileNames: 'assets/[name][extname]',
           },
         },
       },

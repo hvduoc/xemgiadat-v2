@@ -33,6 +33,7 @@
     </script>
     
     <!-- Initialization utilities (refactored) -->
+    <script src="./src/scripts/init.js"></script>
     
     <!-- Core Libraries -->
     <link href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
@@ -371,5 +372,20 @@
     </script>
 
     <!-- Main React Entry Point -->
+    <script>
+        (function() {
+            // Load the appropriate entry point based on environment
+            var isLocalhost = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+            var src = isLocalhost ? './src/main.js' : './dist/assets/index.js';
+            console.log('[HTML] Loading entry point:', src, '(localhost:', isLocalhost, ')');
+            var script = document.createElement('script');
+            script.type = 'module';
+            script.src = src;
+            script.onerror = function(err) {
+                console.error('[HTML] Failed to load entry point:', err);
+            };
+            document.body.appendChild(script);
+        })();
+    </script>
 </body>
 </html>

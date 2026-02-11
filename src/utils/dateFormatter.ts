@@ -1,9 +1,9 @@
 /**
  * Format timestamp to Vietnamese date format
- * @param timestamp - Unix timestamp in milliseconds, Date object, or Firestore Timestamp
+ * @param timestamp - Unix timestamp in milliseconds or Firestore Timestamp
  * @returns Formatted date string in Vietnamese
  */
-export function formatDateVN(timestamp: Date | number | { toDate(): Date }): string {
+export function formatDateVN(timestamp: any): string {
   try {
     let date: Date;
     
@@ -45,10 +45,10 @@ export function formatDateVN(timestamp: Date | number | { toDate(): Date }): str
 
 /**
  * Check if listing is old (> 30 days)
- * @param timestamp - Unix timestamp in milliseconds, Date object, or Firestore Timestamp
+ * @param timestamp - Unix timestamp in milliseconds or Firestore Timestamp
  * @returns true if listing is older than 30 days
  */
-export function isOldListing(timestamp: Date | number | { toDate(): Date }): boolean {
+export function isOldListing(timestamp: any): boolean {
   try {
     let date: Date;
     

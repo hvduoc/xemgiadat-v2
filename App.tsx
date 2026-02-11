@@ -1,5 +1,8 @@
-import React, { useEffect, useRef, useState, useMemo } from 'react';
-import {
+
+const React = (window as any).React;
+const { useEffect, useRef, useState, useMemo } = React;
+const lucide = (window as any).lucideReact || {};
+const {
   MapPin,
   Share2,
   X,
@@ -26,7 +29,7 @@ import {
   Video,
   Scissors,
   QrCode
-} from 'lucide-react';
+} = lucide;
 
 const App = () => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -36,12 +39,7 @@ const App = () => {
     MapController.setInstance(instance);
     return instance;
   }, []);
-  
-  // Configuration constants for monetization features
-  const ZALO_PHONE = '0123456789'; // TODO: Replace with actual Zalo phone number
-  const BANK_ACCOUNT = '0123456789'; // TODO: Replace with actual bank account
-  const BANK_NAME = 'VCB';
-  const BANK_HOLDER = 'ADMIN'; // TODO: Replace with actual account holder name
+    const [searchService, setSearchService] = useState<any>(null);
   
   const [selectedParcel, setSelectedParcel] = useState(null as ParcelData | null);
   const [selectedListing, setSelectedListing] = useState(null as ListingData | null);
@@ -52,9 +50,6 @@ const App = () => {
   // Monetization modals
   const [showVIPModal, setShowVIPModal] = useState(false);
   const [showCoffeeModal, setShowCoffeeModal] = useState(false);
-  const [showServiceModal, setShowServiceModal] = useState(false);
-  const [selectedService, setSelectedService] = useState('');
-  const [servicePhone, setServicePhone] = useState('');
   
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState<ParcelData[]>([]);
@@ -72,6 +67,7 @@ const App = () => {
     if (!mapContainerRef.current) return;
     const LinkService = (window as any).LinkService;
     const PriceService = (window as any).PriceService;
+      const SearchService = (window as any).SearchService;
     const initial = LinkService.getParams();
     
     controller.init(
@@ -136,11 +132,14 @@ const App = () => {
       });
     }
     
-      // SearchService cũ đã bị xóa — dùng LandParcelService.searchV1
-      return () => {};
+      // Khởi tạo SearchService sau khi map đã load
+      const service = new SearchService(controller);
+      setSearchService(service);
+    
+      return () => {
+        service?.terminate();
+      };
   }, [controller]);
-
-
 
   // Haptic feedback simulation
   const triggerHaptic = (type: 'light' | 'medium' | 'heavy' = 'medium') => {
@@ -216,28 +215,12 @@ const App = () => {
 
     const handleSearch = async (e: React.FormEvent) => {
       e.preventDefault();
-      if (!searchQuery.trim()) return;
+      if (!searchQuery.trim() || !searchService) return;
     
       setIsSearching(true);
       try {
-        console.log('🔍 Global Search Triggered:', searchQuery.trim());
-        const landParcelService = (window as any).LandParcelService;
-
-        // === V1 Logic: Quét 56 shard files → FlyTo + Highlight ===
-        if (landParcelService && typeof landParcelService.searchV1 === 'function') {
-          const parcelFound = await landParcelService.searchV1(searchQuery.trim());
-          if (parcelFound) {
-            // Tìm thấy thửa đất → bay ngay, dừng tại đây
-            setSearchResults([]);
-            setSearchQuery('');
-            setIsSearching(false);
-            return;
-          }
-        }
-
-        // Fallback: Logic tìm kiếm tin đăng cũ
-        console.log('[Search] Không tìm thấy thửa đất, thử tìm tin đăng...');
-        setSearchResults([]);
+        const results = await searchService.searchParcels(searchQuery);
+        setSearchResults(results);
       } catch (err) {
         console.error('Search failed:', err);
         setSearchResults([]);
@@ -291,81 +274,9 @@ const App = () => {
   const handleVIPService = (service: string) => {
     const item = selectedParcel || selectedListing;
     const location = item ? `Tờ ${item.so_to}, Thửa ${item.so_thua}` : 'Vị trí chưa xác định';
-    const zaloLink = `https://zalo.me/${ZALO_PHONE}?text=${encodeURIComponent(`Xin chào! Tôi muốn sử dụng dịch vụ: ${service} cho ${location}`)}`;
+    const zaloLink = `https://zalo.me/0123456789?text=${encodeURIComponent(`Xin chào! Tôi muốn sử dụng dịch vụ: ${service} cho ${location}`)}`;
     window.open(zaloLink, '_blank');
     setShowVIPModal(false);
-  };
-
-  const handleServiceRequest = (service: string) => {
-    setSelectedService(service);
-    setServicePhone('');
-    setShowServiceModal(true);
-  };
-
-  const handleSubmitServiceRequest = () => {
-    if (!servicePhone.trim()) {
-      alert('Vui lòng nhập số điện thoại!');
-      return;
-    }
-    
-    const item = selectedParcel || selectedListing;
-    const location = item ? `Tờ ${item.so_to}, Thửa ${item.so_thua} tại ${item.dia_chi}` : 'Vị trí chưa xác định';
-    const message = `Tôi muốn đặt dịch vụ ${selectedService} cho thửa đất ${location}. SĐT liên hệ: ${servicePhone}`;
-    const zaloLink = `https://zalo.me/${ZALO_PHONE}?text=${encodeURIComponent(message)}`;
-    
-    window.open(zaloLink, '_blank');
-    setShowServiceModal(false);
-    setServicePhone('');
-  };
-
-  // Share and Copy handlers for info view
-  const handleShareParcel = () => {
-    if (!selectedParcel) return;
-    triggerHaptic('light');
-    
-    const LinkService = (window as any).LinkService;
-    const PriceService = (window as any).PriceService;
-    const shareLink = LinkService.generateParcelShareLink(
-      selectedParcel.coordinates[0],
-      selectedParcel.coordinates[1]
-    );
-    const priceFormatted = PriceService.formatCurrency(selectedParcel.gia_uoc_tinh || 0);
-    const content = `Bán đất ${selectedParcel.dien_tich}m² - Giá ${priceFormatted} - Tại ${selectedParcel.dia_chi}. Xem chi tiết: ${shareLink}`;
-    
-    if (navigator.share) {
-      navigator.share({
-        title: 'Thông tin thửa đất',
-        text: content
-      }).catch(() => {
-        navigator.clipboard?.writeText(content);
-        showToast('Đã copy nội dung!');
-      });
-    } else {
-      navigator.clipboard?.writeText(content);
-      showToast('Đã copy nội dung!');
-    }
-  };
-
-  const handleCopyCoordinates = () => {
-    if (!selectedParcel) return;
-    triggerHaptic('light');
-    
-    const coords = `${selectedParcel.coordinates[1].toFixed(6)}, ${selectedParcel.coordinates[0].toFixed(6)}`;
-    navigator.clipboard?.writeText(coords);
-    showToast('Đã copy tọa độ!');
-  };
-
-  // Toast notification helper
-  const showToast = (message: string) => {
-    const toast = document.createElement('div');
-    toast.className = 'fixed top-20 left-1/2 -translate-x-1/2 z-[300] bg-slate-900 text-white px-6 py-3 rounded-full shadow-xl text-sm font-bold animate-in fade-in slide-in-from-top-4 duration-300';
-    toast.textContent = message;
-    document.body.appendChild(toast);
-    
-    setTimeout(() => {
-      toast.classList.add('animate-out', 'fade-out', 'slide-out-to-top-4');
-      setTimeout(() => toast.remove(), 300);
-    }, 2000);
   };
 
   return (
@@ -391,8 +302,6 @@ const App = () => {
                 </button>
               )}
             </div>
-
-
           
             {/* Search Results Dropdown */}
             {(isSearching || searchResults.length > 0) && (
@@ -446,6 +355,16 @@ const App = () => {
               {is3DView ? '2D' : '3D'}
             </div>
           </button>
+          
+          {/* Coffee Button */}
+          <button
+            onClick={() => setShowCoffeeModal(true)}
+            className="backdrop-blur-xl bg-amber-600/90 rounded-2xl shadow-2xl border border-amber-400/20 p-4 transition-all duration-300 active:scale-95 hover:scale-105"
+            aria-label="Mời cà phê"
+          >
+            <Coffee className="w-6 h-6 text-white" />
+            <div className="text-xs font-bold mt-1 text-white">Cà phê</div>
+          </button>
         </div>
 
       <div ref={mapContainerRef} className="w-full h-full" />
@@ -495,18 +414,9 @@ const App = () => {
                         <MapPin className="w-4 h-4 text-red-500" /> {selectedParcel.dia_chi}
                       </p>
                     </div>
-                    <div className="flex gap-2">
-                      <button 
-                        onClick={() => setShowCoffeeModal(true)} 
-                        className="p-2 bg-amber-50 hover:bg-amber-100 rounded-full transition-colors"
-                        aria-label="Mời cà phê"
-                      >
-                        <Coffee className="w-5 h-5 text-amber-600" />
-                      </button>
-                      <button onClick={() => setSelectedParcel(null)} className="p-2 bg-slate-100 rounded-full">
-                        <X className="w-5 h-5 text-slate-400" />
-                      </button>
-                    </div>
+                    <button onClick={() => setSelectedParcel(null)} className="p-2 bg-slate-100 rounded-full">
+                      <X className="w-5 h-5 text-slate-400" />
+                    </button>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4 mb-6">
@@ -556,48 +466,27 @@ const App = () => {
                       <Rocket className="w-6 h-6 text-yellow-400" /> Rao bán lô này
                     </button>
                     
+                    {/* VIP Service Button */}
+                    <button 
+                      onClick={() => { triggerHaptic('medium'); setShowVIPModal(true); }}
+                      className="w-full h-14 bg-gradient-to-r from-purple-600 to-purple-500 text-white rounded-2xl font-bold text-base flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all hover:shadow-xl"
+                    >
+                      <Wrench className="w-5 h-5" /> Yêu cầu Dịch vụ
+                    </button>
+                    
                     <div className="flex gap-3">
                       <button 
-                        onClick={handleShareParcel}
+                        onClick={() => triggerHaptic('light')}
                         className="flex-1 backdrop-blur-sm bg-slate-100/80 text-slate-700 h-14 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 active:scale-95 transition-all"
                       >
                         <Share2 className="w-4 h-4" /> Chia sẻ
                       </button>
                       <button 
-                        onClick={handleCopyCoordinates}
+                        onClick={() => triggerHaptic('light')}
                         className="flex-1 backdrop-blur-sm bg-slate-100/80 text-slate-700 h-14 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 active:scale-95 transition-all"
                       >
                         <Copy className="w-4 h-4" /> Tọa độ
                       </button>
-                    </div>
-
-                    {/* Services Section */}
-                    <div className="mt-2 pt-4 border-t border-slate-200">
-                      <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Dịch vụ hỗ trợ</p>
-                      <div className="grid grid-cols-3 gap-2">
-                        <button 
-                          onClick={() => handleServiceRequest('Chụp 360°')}
-                          className="p-3 bg-blue-50 hover:bg-blue-100 rounded-xl flex flex-col items-center gap-2 transition-all active:scale-95"
-                        >
-                          <Camera className="w-5 h-5 text-blue-600" />
-                          <span className="text-xs font-bold text-blue-900">Chụp 360°</span>
-                        </button>
-                        <button 
-                          onClick={() => handleServiceRequest('Dọn cỏ')}
-                          className="p-3 bg-green-50 hover:bg-green-100 rounded-xl flex flex-col items-center gap-2 transition-all active:scale-95"
-                        >
-                          <span className="text-xl">🌱</span>
-                          <span className="text-xs font-bold text-green-900">Dọn cỏ</span>
-                        </button>
-                        <button 
-                          onClick={() => handleServiceRequest('Cắm mốc')}
-                          className="p-3 bg-orange-50 hover:bg-orange-100 rounded-xl flex flex-col items-center gap-2 transition-all active:scale-95"
-                        >
-                          <span className="text-xl">📍</span>
-                          <span className="text-xs font-bold text-orange-900">Cắm mốc</span>
-                        </button>
-                      </div>
-                    </div>
                     </div>
                     
                     {/* Advertising Placeholder */}
@@ -605,6 +494,7 @@ const App = () => {
                       <p className="text-xs text-slate-400 font-medium">📢 Liên hệ quảng cáo tại đây</p>
                     </div>
                   </div>
+                </div>
               )}
 
               {view === 'listing' && selectedParcel && (
@@ -704,30 +594,28 @@ const App = () => {
               {view === 'listing-detail' && selectedListing && (
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
                   {/* Status Badges */}
-                  {(getStatusBadges().length > 0 || (selectedListing.createdAt && ((window as any).DateFormatter?.isOldListing(selectedListing.createdAt)))) && (
-                    <div className="flex gap-2 mb-4 flex-wrap">
-                      {getStatusBadges().map((badge, i) => (
-                        <span 
-                          key={i}
-                          className={`px-3 py-1 rounded-full text-xs font-bold backdrop-blur-sm
-                            ${badge.includes('Giá tốt') || badge.includes('Hợp lý') ? 'bg-green-100 text-green-700 border border-green-200' :
-                              badge.includes('Cao cấp') || badge.includes('Hạng sang') ? 'bg-purple-100 text-purple-700 border border-purple-200' :
-                              badge.includes('Mới đăng') ? 'bg-blue-100 text-blue-700 border border-blue-200' :
-                              badge.includes('Đã xác thực') ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
-                              'bg-slate-100 text-slate-700 border border-slate-200'}
-                          `}
-                        >
-                          {badge}
-                        </span>
-                      ))}
-                      {/* Old Listing Badge */}
-                      {selectedListing.createdAt && ((window as any).DateFormatter?.isOldListing(selectedListing.createdAt)) && (
-                        <span className="px-3 py-1 rounded-full text-xs font-bold backdrop-blur-sm bg-gray-100 text-gray-600 border border-gray-300">
-                          ⏳ Tin cũ - Cần xác thực lại
-                        </span>
-                      )}
-                    </div>
-                  )}
+                  <div className="flex gap-2 mb-4 flex-wrap">
+                    {getStatusBadges().map((badge, i) => (
+                      <span 
+                        key={i}
+                        className={`px-3 py-1 rounded-full text-xs font-bold backdrop-blur-sm
+                          ${badge.includes('Giá tốt') || badge.includes('Hợp lý') ? 'bg-green-100 text-green-700 border border-green-200' :
+                            badge.includes('Cao cấp') || badge.includes('Hạng sang') ? 'bg-purple-100 text-purple-700 border border-purple-200' :
+                            badge.includes('Mới đăng') ? 'bg-blue-100 text-blue-700 border border-blue-200' :
+                            badge.includes('Đã xác thực') ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
+                            'bg-slate-100 text-slate-700 border border-slate-200'}
+                        `}
+                      >
+                        {badge}
+                      </span>
+                    ))}
+                    {/* Old Listing Badge */}
+                    {selectedListing.createdAt && ((window as any).DateFormatter?.isOldListing(selectedListing.createdAt)) && (
+                      <span className="px-3 py-1 rounded-full text-xs font-bold backdrop-blur-sm bg-gray-100 text-gray-600 border border-gray-300">
+                        ⏳ Tin cũ - Cần xác thực lại
+                      </span>
+                    )}
+                  </div>
 
                   <div className="flex justify-between items-start mb-6">
                     <div>
@@ -740,18 +628,9 @@ const App = () => {
                         <MapPin className="w-4 h-4 text-red-500" /> Tờ {selectedListing.so_to || 'N/A'} / Thửa {selectedListing.so_thua || 'N/A'}
                       </p>
                     </div>
-                    <div className="flex gap-2">
-                      <button 
-                        onClick={() => setShowCoffeeModal(true)} 
-                        className="p-2 bg-amber-50 hover:bg-amber-100 rounded-full transition-colors"
-                        aria-label="Mời cà phê"
-                      >
-                        <Coffee className="w-5 h-5 text-amber-600" />
-                      </button>
-                      <button onClick={() => { setSelectedListing(null); }} className="p-2 bg-slate-100 rounded-full">
-                        <X className="w-5 h-5 text-slate-400" />
-                      </button>
-                    </div>
+                    <button onClick={() => { setSelectedListing(null); }} className="p-2 bg-slate-100 rounded-full">
+                      <X className="w-5 h-5 text-slate-400" />
+                    </button>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4 mb-6">
@@ -825,6 +704,14 @@ const App = () => {
                       </a>
                     )}
                     
+                    {/* VIP Service Button */}
+                    <button 
+                      onClick={() => { triggerHaptic('medium'); setShowVIPModal(true); }}
+                      className="w-full h-14 bg-gradient-to-r from-purple-600 to-purple-500 text-white rounded-2xl font-bold text-base flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all hover:shadow-xl"
+                    >
+                      <Wrench className="w-5 h-5" /> Yêu cầu Dịch vụ
+                    </button>
+                    
                     <div className="flex gap-3">
                       <button 
                         onClick={() => {
@@ -851,7 +738,7 @@ const App = () => {
                             selectedListing.coordinates[1]
                           );
                           navigator.clipboard?.writeText(shareLink);
-                          showToast('Link đã được copy!');
+                          alert('Link đã được copy!');
                         }}
                         className="flex-1 bg-slate-100 text-slate-600 h-14 rounded-2xl font-bold text-sm flex items-center justify-center gap-2"
                       >
@@ -871,34 +758,6 @@ const App = () => {
                       >
                         <MapPin className="w-4 h-4" /> Vị trí
                       </button>
-                    </div>
-
-                    {/* Services Section */}
-                    <div className="mt-2 pt-4 border-t border-slate-200">
-                      <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Dịch vụ hỗ trợ</p>
-                      <div className="grid grid-cols-3 gap-2">
-                        <button 
-                          onClick={() => handleServiceRequest('Chụp 360°')}
-                          className="p-3 bg-blue-50 hover:bg-blue-100 rounded-xl flex flex-col items-center gap-2 transition-all active:scale-95"
-                        >
-                          <Camera className="w-5 h-5 text-blue-600" />
-                          <span className="text-xs font-bold text-blue-900">Chụp 360°</span>
-                        </button>
-                        <button 
-                          onClick={() => handleServiceRequest('Dọn cỏ')}
-                          className="p-3 bg-green-50 hover:bg-green-100 rounded-xl flex flex-col items-center gap-2 transition-all active:scale-95"
-                        >
-                          <span className="text-xl">🌱</span>
-                          <span className="text-xs font-bold text-green-900">Dọn cỏ</span>
-                        </button>
-                        <button 
-                          onClick={() => handleServiceRequest('Cắm mốc')}
-                          className="p-3 bg-orange-50 hover:bg-orange-100 rounded-xl flex flex-col items-center gap-2 transition-all active:scale-95"
-                        >
-                          <span className="text-xl">📍</span>
-                          <span className="text-xs font-bold text-orange-900">Cắm mốc</span>
-                        </button>
-                      </div>
                     </div>
                     
                     {/* Advertising Placeholder */}
@@ -925,46 +784,51 @@ const App = () => {
         </div>
       )}
       
-      {/* Service Phone Modal */}
-      {showServiceModal && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setShowServiceModal(false)}>
+      {/* VIP Service Modal */}
+      {showVIPModal && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setShowVIPModal(false)}>
           <div className="bg-white rounded-3xl p-6 max-w-sm mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-black text-slate-900">📋 Yêu cầu dịch vụ</h3>
-              <button onClick={() => setShowServiceModal(false)} className="p-2 hover:bg-slate-100 rounded-full">
+              <h3 className="text-xl font-black text-slate-900">🛠️ Dịch vụ VIP</h3>
+              <button onClick={() => setShowVIPModal(false)} className="p-2 hover:bg-slate-100 rounded-full">
                 <X className="w-5 h-5 text-slate-400" />
               </button>
             </div>
             
-            <div className="mb-4 p-4 bg-blue-50 rounded-2xl">
-              <p className="text-sm font-bold text-slate-900 mb-1">Dịch vụ: {selectedService}</p>
-              <p className="text-xs text-slate-600">
-                {selectedParcel && `Tờ ${selectedParcel.so_to}, Thửa ${selectedParcel.so_thua}`}
-                {selectedListing && `Tờ ${selectedListing.so_to}, Thửa ${selectedListing.so_thua}`}
-              </p>
+            <div className="space-y-3">
+              <button 
+                onClick={() => handleVIPService('Chụp ảnh 360°')}
+                className="w-full p-4 bg-gradient-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 rounded-2xl flex items-center gap-3 transition-all active:scale-95"
+              >
+                <Camera className="w-6 h-6 text-blue-600" />
+                <div className="text-left">
+                  <p className="font-bold text-slate-900">Chụp ảnh 360°</p>
+                  <p className="text-xs text-slate-600">Ảnh toàn cảnh chuyên nghiệp</p>
+                </div>
+              </button>
+              
+              <button 
+                onClick={() => handleVIPService('Quay Flycam')}
+                className="w-full p-4 bg-gradient-to-r from-purple-50 to-purple-100 hover:from-purple-100 hover:to-purple-200 rounded-2xl flex items-center gap-3 transition-all active:scale-95"
+              >
+                <Video className="w-6 h-6 text-purple-600" />
+                <div className="text-left">
+                  <p className="font-bold text-slate-900">Quay Flycam</p>
+                  <p className="text-xs text-slate-600">Video từ trên cao</p>
+                </div>
+              </button>
+              
+              <button 
+                onClick={() => handleVIPService('Dọn cỏ/Cắm mốc')}
+                className="w-full p-4 bg-gradient-to-r from-green-50 to-green-100 hover:from-green-100 hover:to-green-200 rounded-2xl flex items-center gap-3 transition-all active:scale-95"
+              >
+                <Scissors className="w-6 h-6 text-green-600" />
+                <div className="text-left">
+                  <p className="font-bold text-slate-900">Dọn cỏ / Cắm mốc</p>
+                  <p className="text-xs text-slate-600">Chăm sóc đất đai</p>
+                </div>
+              </button>
             </div>
-            
-            <div className="mb-6">
-              <label className="block text-sm font-bold text-slate-700 mb-2">Số điện thoại liên hệ</label>
-              <input
-                type="tel"
-                placeholder="Nhập số điện thoại..."
-                value={servicePhone}
-                onChange={(e) => setServicePhone(e.target.value)}
-                className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-blue-500 focus:outline-none text-slate-900 font-semibold"
-              />
-            </div>
-            
-            <button
-              onClick={handleSubmitServiceRequest}
-              className="w-full h-14 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-2xl font-bold text-base flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all hover:shadow-xl"
-            >
-              <Send className="w-5 h-5" /> Gửi yêu cầu qua Zalo
-            </button>
-            
-            <p className="text-xs text-slate-500 text-center mt-3">
-              Yêu cầu sẽ được gửi đến Admin qua Zalo
-            </p>
           </div>
         </div>
       )}
@@ -991,8 +855,8 @@ const App = () => {
             </div>
             
             <p className="text-xs text-slate-500 mb-2">Quét mã QR để gửi qua Momo/Banking</p>
-            <p className="text-xs font-bold text-slate-700">Số tài khoản: {BANK_ACCOUNT}</p>
-            <p className="text-xs text-slate-600">Ngân hàng: {BANK_NAME} - Chủ TK: {BANK_HOLDER}</p>
+            <p className="text-xs font-bold text-slate-700">Số tài khoản: 0123456789</p>
+            <p className="text-xs text-slate-600">Ngân hàng: VCB - Chủ TK: ADMIN</p>
             
             <div className="mt-6 bg-amber-50 border border-amber-100 rounded-xl p-3">
               <p className="text-xs text-amber-800 font-medium">
@@ -1007,3 +871,4 @@ const App = () => {
 };
 
 export default App;
+(window as any).App = App;

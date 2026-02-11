@@ -1,15 +1,59 @@
 /**
- * SearchService - Tìm kiếm thửa đất từ PMTiles vector source
- * Sử dụng querySourceFeatures để truy vấn features từ vector tiles đã load
+ * SearchService - Tìm kiếm thửa đất từ search_index.json
+ * Sử dụng pre-built search index để tìm kiếm nhanh chóng
  */
 window.SearchService = class SearchService {
   private mapController: any;
   private searchModule: any;
+  private searchIndex: Map<string, ParcelData> | null = null;
+  private indexLoadPromise: Promise<void> | null = null;
   
   constructor(mapController?: any) {
     this.mapController = mapController || { map: window.MapController.getMap() };
     const SearchModule = (window as any).SearchModule;
     this.searchModule = new SearchModule();
+    // Start loading index immediately
+    this.indexLoadPromise = this.loadSearchIndex();
+  }
+
+  /**
+   * Load search index from ./data/search_index.json
+   */
+  private async loadSearchIndex(): Promise<void> {
+    if (this.searchIndex) return;
+    
+    try {
+      const response = await fetch('./data/search_index.json');
+      if (!response.ok) {
+        throw new Error(`Failed to load search index: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      this.searchIndex = new Map();
+      
+      // Build map for quick lookup: "so_to:so_thua" -> ParcelData
+      for (const [key, value] of Object.entries(data)) {
+        if (typeof value === 'object' && value !== null) {
+          const parcelData = value as any;
+          const mapKey = `${parcelData.so_to}:${parcelData.so_thua}`;
+          this.searchIndex.set(mapKey, {
+            id: parcelData.id || mapKey,
+            so_thua: parcelData.so_thua || '',
+            so_to: parcelData.so_to || '',
+            dien_tich: parseFloat(parcelData.dien_tich || 0),
+            muc_dich: parcelData.muc_dich || '',
+            ma_xa: parcelData.ma_xa || '',
+            dia_chi: parcelData.dia_chi !== 'Null' ? parcelData.dia_chi : 'TP. Đà Nẵng',
+            coordinates: parcelData.coordinates || [108.2022, 16.0544]
+          });
+        }
+      }
+      
+      console.log(`Search index loaded: ${this.searchIndex.size} parcels`);
+    } catch (err) {
+      console.error('Failed to load search index:', err);
+      this.searchIndex = new Map(); // Empty map to avoid retrying
+    }
   }
 
   /**
@@ -18,58 +62,20 @@ window.SearchService = class SearchService {
    * @returns Promise<ParcelData[]> - Danh sách các thửa đất tìm được
    */
   async searchParcels(query: string): Promise<ParcelData[]> {
-    if (!query || !this.mapController?.map) return [];
+    if (!query) return [];
+    
+    // Wait for index to load
+    await this.indexLoadPromise;
+    
+    if (!this.searchIndex || this.searchIndex.size === 0) {
+      console.warn('Search index not loaded');
+      return [];
+    }
     
     try {
-      const StyleEngine = (window as any).StyleEngine;
-      const map = this.mapController.map;
+      // Convert map to array for searching
+      const parcels = Array.from(this.searchIndex.values());
       
-      // Lấy tất cả features từ source (trong viewport và tiles đã load)
-      const features = map.querySourceFeatures(StyleEngine.SOURCE_ID, {
-        sourceLayer: StyleEngine.SOURCE_LAYER
-      });
-
-      if (!features || features.length === 0) {
-        console.warn('No features loaded yet. Try zooming in or panning the map.');
-        return [];
-      }
-
-      // Chuyển đổi features thành ParcelData
-      const parcels: ParcelData[] = features.map((f: any) => {
-        const props = f.properties || {};
-        
-        // --- LOGIC TÍNH TÂM POLYGON ---
-        let coordinates: [number, number] = [108.2022, 16.0544]; // default
-        
-        if (f.geometry?.type === 'Polygon' && f.geometry.coordinates?.[0]?.[0]) {
-          const coords = f.geometry.coordinates[0];
-          const lngs = coords.map((c: any) => c[0]);
-          const lats = coords.map((c: any) => c[1]);
-          coordinates = [
-            (Math.min(...lngs) + Math.max(...lngs)) / 2,
-            (Math.min(...lats) + Math.max(...lats)) / 2
-          ];
-        }
-
-        // --- CẬP NHẬT MAPPING PROPERTIES (FIX LỖI TÌM KIẾM) ---
-        return {
-          id: f.id || props.OBJECTID || props['Mã thửa đất'] || '',
-          
-          // Ưu tiên lấy key tiếng Việt không dấu (từ log), ép kiểu về String để search chuẩn
-          so_thua: String(props['SoThuTuThua'] || props['Số thửa'] || props.so_thua || ''),
-          so_to: String(props['SoHieuToBanDo'] || props['Số hiệu tờ bản đồ'] || props.so_to || ''),
-          
-          dien_tich: parseFloat(props['DienTich'] || props['Diện tích'] || props.dien_tich || 0),
-          muc_dich: props['KyHieuMucDichSuDung'] || props['Ký hiệu mục đích sử dụng'] || props.muc_dich || '',
-          ma_xa: props['MaXa'] || props['Mã xã'] || props.ma_xa || '',
-          
-          // Xử lý địa chỉ: Ưu tiên DiaChi, fallback về props cũ
-          dia_chi: props['DiaChi'] || (props['Địa chỉ'] !== 'Null' ? props['Địa chỉ'] : 'TP. Đà Nẵng'),
-          
-          coordinates
-        };
-      });
-
       // Sử dụng SearchModule để rank và filter kết quả
       const results = await this.searchModule.search(query, parcels);
       
@@ -90,9 +96,8 @@ window.SearchService = class SearchService {
     if (!soTo || !soThua) return null;
     const results = await this.searchParcels(`${soTo} ${soThua}`);
 
-    // So sánh chuỗi (String) để đảm bảo chính xác
     const exact = results.find(p =>
-      String(p.so_to) === String(soTo) && String(p.so_thua) === String(soThua)
+      p.so_to === soTo && p.so_thua === soThua
     );
 
     const found = exact || (results.length > 0 ? results[0] : null);

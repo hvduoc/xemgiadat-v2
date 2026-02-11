@@ -7,8 +7,12 @@ console.log('[main.tsx] ENTRY - File loaded');
 
 import React from 'react';
 import { createRoot } from 'react-dom/client';
+import * as pmtiles from 'pmtiles';
 
 console.log('[main.tsx] React imports loaded');
+console.log('[main.tsx] PMTiles module loaded');
+
+(window as any).pmtiles = pmtiles;
 
 // === Service Imports (sets window globals) ===
 console.log('[main.tsx] Loading services...');

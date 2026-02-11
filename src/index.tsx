@@ -2,16 +2,16 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 
 // === Service Imports (sets window globals) ===
-import './services/LandParcelService';
-import './services/AIInsightService';
-import './services/BookmarkService';
-import './services/ImageService';
-import './services/PriceService';
-import './services/LinkService';
-import './services/MapModule';
+import '../services/LandParcelService';
+import '../services/AIInsightService';
+import '../services/BookmarkService';
+import '../services/ImageService';
+import '../services/PriceService';
+import '../services/LinkService';
+import '../services/MapModule';
 
 // === App Component ===
-import App from './App';
+import '../App';
 
 /**
  * CẦU CHÌ BẢO VỆ: bypassLocation

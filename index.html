@@ -5,6 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>XemGiaDat V5.1 - GIS Standalone Pro</title>
     
+    <!-- PRODUCTION REDIRECT: When on GitHub Pages, redirect to built version -->
+    <script>
+    (function() {
+      var isProduction = window.location.hostname.indexOf('github.io') !== -1;
+      var isAlreadyInDist = window.location.pathname.indexOf('/dist/') !== -1;
+      if (isProduction && !isAlreadyInDist) {
+        var newPath = window.location.pathname.replace(/\/$/, '') + '/dist/index.html';
+        window.location.replace(newPath + window.location.search + window.location.hash);
+      }
+    })();
+    </script>
+    
     <!-- CDNs ĐIỀU KIỆN TIÊN QUYẾT -->
     
     <!-- Critical Initialization utilities (INLINED for reliability) -->

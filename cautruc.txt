@@ -1,0 +1,226 @@
+.
+├── .github
+│   └── workflows
+│       └── deploy.yml
+├── .gitignore
+├── ADMIN_CUSTOM_CLAIMS_SETUP.md
+├── App.tsx
+├── DEPLOYMENT_INSTRUCTIONS.md
+├── FIREBASE_SHARE_FEATURE_REQUEST.md
+├── FIRESTORE_RULES_DEPLOY.md
+├── IMPLEMENTATION_SUMMARY.md
+├── PRODUCTION_DEPLOYMENT.md
+├── PROJECT_V2_REPORT.txt
+├── README.md
+├── REFACTORING_SUMMARY.md
+├── REQUEST_OLD_PROJECT_INFO.md
+├── assets
+│   ├── index.css
+│   └── index.js
+├── cautruc.txt
+├── cdn-test.html
+├── chot
+├── data
+│   └── land-law-2024.json
+├── debug.html
+├── dist_index.html
+├── firestore.rules
+├── index.html
+├── metadata.json
+├── minimal.html
+├── og.html
+├── package-lock.json
+├── package.json
+├── playwright.config.cjs
+├── postcss.config.js
+├── public
+│   ├── data
+│   │   └── parcels
+│   │       ├── 20194.json
+│   │       ├── 20195.json
+│   │       ├── 20197.json
+│   │       ├── 20198.json
+│   │       ├── 20200.json
+│   │       ├── 20203.json
+│   │       ├── 20206.json
+│   │       ├── 20207.json
+│   │       ├── 20209.json
+│   │       ├── 20212.json
+│   │       ├── 20215.json
+│   │       ├── 20218.json
+│   │       ├── 20221.json
+│   │       ├── 20224.json
+│   │       ├── 20225.json
+│   │       ├── 20227.json
+│   │       ├── 20230.json
+│   │       ├── 20233.json
+│   │       ├── 20236.json
+│   │       ├── 20239.json
+│   │       ├── 20242.json
+│   │       ├── 20245.json
+│   │       ├── 20246.json
+│   │       ├── 20248.json
+│   │       ├── 20251.json
+│   │       ├── 20254.json
+│   │       ├── 20257.json
+│   │       ├── 20258.json
+│   │       ├── 20260.json
+│   │       ├── 20263.json
+│   │       ├── 20266.json
+│   │       ├── 20269.json
+│   │       ├── 20272.json
+│   │       ├── 20275.json
+│   │       ├── 20278.json
+│   │       ├── 20281.json
+│   │       ├── 20284.json
+│   │       ├── 20285.json
+│   │       ├── 20287.json
+│   │       ├── 20290.json
+│   │       ├── 20293.json
+│   │       ├── 20296.json
+│   │       ├── 20299.json
+│   │       ├── 20302.json
+│   │       ├── 20305.json
+│   │       ├── 20306.json
+│   │       ├── 20308.json
+│   │       ├── 20311.json
+│   │       ├── 20312.json
+│   │       ├── 20314.json
+│   │       ├── 20317.json
+│   │       ├── 20320.json
+│   │       ├── 20323.json
+│   │       ├── 20326.json
+│   │       ├── 20329.json
+│   │       ├── 20332.json
+│   │       └── communes.json
+│   ├── src
+│   │   ├── scripts
+│   │   │   └── init.js
+│   │   └── styles
+│   │       └── main.css
+│   └── tiles
+├── raw_data
+│   ├── 20194.geojson
+│   ├── 20195.geojson
+│   ├── 20197.geojson
+│   ├── 20198.geojson
+│   ├── 20200.geojson
+│   ├── 20203.geojson
+│   ├── 20206.geojson
+│   ├── 20207.geojson
+│   ├── 20209.geojson
+│   ├── 20212.geojson
+│   ├── 20215.geojson
+│   ├── 20218.geojson
+│   ├── 20221.geojson
+│   ├── 20224.geojson
+│   ├── 20225.geojson
+│   ├── 20227.geojson
+│   ├── 20230.geojson
+│   ├── 20233.geojson
+│   ├── 20236.geojson
+│   ├── 20239.geojson
+│   ├── 20242.geojson
+│   ├── 20245.geojson
+│   ├── 20246.geojson
+│   ├── 20248.geojson
+│   ├── 20251.geojson
+│   ├── 20254.geojson
+│   ├── 20257.geojson
+│   ├── 20258.geojson
+│   ├── 20260.geojson
+│   ├── 20263.geojson
+│   ├── 20266.geojson
+│   ├── 20269.geojson
+│   ├── 20272.geojson
+│   ├── 20275.geojson
+│   ├── 20278.geojson
+│   ├── 20281.geojson
+│   ├── 20284.geojson
+│   ├── 20285.geojson
+│   ├── 20287.geojson
+│   ├── 20290.geojson
+│   ├── 20293.geojson
+│   ├── 20296.geojson
+│   ├── 20299.geojson
+│   ├── 20302.geojson
+│   ├── 20305.geojson
+│   ├── 20306.geojson
+│   ├── 20308.geojson
+│   ├── 20311.geojson
+│   ├── 20312.geojson
+│   ├── 20314.geojson
+│   ├── 20317.geojson
+│   ├── 20320.geojson
+│   ├── 20323.geojson
+│   ├── 20326.geojson
+│   ├── 20329.geojson
+│   └── 20332.geojson
+├── scripts
+│   └── generate_search_index.cjs
+├── services
+│   ├── AIInsightService.ts
+│   ├── BookmarkService.ts
+│   ├── ImageService.ts
+│   ├── LandParcelService.ts
+│   ├── LinkService.ts
+│   ├── MapController.ts
+│   ├── MapModule.ts
+│   ├── MapService.ts
+│   ├── PriceService.ts
+│   ├── SearchModule.ts
+│   ├── SearchService.ts
+│   └── StyleEngine.ts
+├── src
+│   ├── App.tsx
+│   ├── components
+│   │   ├── Common
+│   │   ├── Layout
+│   │   │   └── Sidebar.tsx
+│   │   ├── Map
+│   │   │   └── MapViewer.tsx
+│   │   └── Search
+│   │       └── SearchBar.tsx
+│   ├── config
+│   │   └── firebase.ts
+│   ├── contexts
+│   │   └── AuthContext.tsx
+│   ├── hooks
+│   ├── init.ts
+│   ├── layouts
+│   │   └── DashboardLayout.tsx
+│   ├── main.js
+│   ├── main.tsx
+│   ├── pages
+│   │   ├── Dashboard.tsx
+│   │   └── Portfolio.tsx
+│   ├── raw_data
+│   │   └── build_full_index.cjs
+│   ├── scripts
+│   ├── services
+│   │   ├── MapController.ts
+│   │   └── SearchService.ts
+│   ├── styles
+│   │   └── main.css
+│   ├── types
+│   │   └── index.ts
+│   └── utils
+│       ├── cdnTracker.ts
+│       ├── dateFormatter.ts
+│       └── storage.ts
+├── tailwind.config.js
+├── tests
+│   ├── bottom-sheet-swipe.spec.cjs
+│   ├── hotfix-paths.spec.cjs
+│   ├── v3-ai-oracle.spec.cjs
+│   ├── v4-monetization.spec.cjs
+│   ├── v4.2-stabilization.spec.cjs
+│   └── v4.3-rescue-polish.spec.cjs
+├── tsconfig.json
+├── types.ts
+├── vite.config.ts
+├── workers
+│   └── searchWorker.ts
+└── xemgiadat_v2_test.html
+
+34 directories, 190 files

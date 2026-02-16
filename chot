@@ -1,0 +1,29 @@
+#!/bin/bash
+# 1. Lấy dữ liệu mới nhất
+echo "🔄 Đang tìm hàng về..."
+git fetch origin --prune
+
+# 2. Tìm nhánh copilot mới nhất vừa được cập nhật
+LATEST_BRANCH=$(git for-each-ref --sort=-committerdate refs/remotes/origin/copilot/ --format="%(refname:short)" | head -n 1 | sed "s/origin\///")
+
+if [ -z "$LATEST_BRANCH" ]; then
+  echo "❌ Không tìm thấy nhánh Agent nào cả!"
+  exit 1
+fi
+
+# 3. Hỏi xác nhận (Mặc định là Đồng ý)
+echo "---------------------------------------"
+echo "🚀 Phát hiện nhánh mới nhất: $LATEST_BRANCH"
+echo "---------------------------------------"
+read -p "❓ CHỐT ĐƠN nhánh này vào Main? (Enter = Có, n = Không): " confirm
+confirm=${confirm:-y}
+
+if [[ "$confirm" =~ ^[Yy]$ ]]; then
+  git checkout main
+  git reset --hard origin/$LATEST_BRANCH
+  git push origin main --force
+  echo "✅ XONG! Đã đẩy $LATEST_BRANCH lên Production."
+  echo "☕ Mời sếp uống cà phê!"
+else
+  echo "❌ Đã hủy."
+fi

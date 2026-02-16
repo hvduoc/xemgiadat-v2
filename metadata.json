@@ -1,0 +1,7 @@
+{
+  "name": "GIS Land Price Pro - Danang 2025",
+  "description": "Hệ thống bản đồ GIS giá đất chuyên nghiệp, tối ưu hiệu năng mobile, hỗ trợ PMTiles và Deep Linking.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}

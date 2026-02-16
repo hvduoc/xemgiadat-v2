@@ -147,7 +147,7 @@ export class LandParcelService {
     }
 
     this.communeListPromise = (async () => {
-      const response = await fetch('/data/parcels/communes.json', { cache: 'no-store' });
+      const response = await fetch('https://xemgiadat.netlify.app/data/parcels/communes.json', { cache: 'no-store' });
       if (!response.ok) {
         throw new Error(`[LandParcelService] Failed to load communes.json (${response.status})`);
       }
@@ -228,7 +228,7 @@ export class LandParcelService {
   }
 
   private async loadShardInternal(communeCode: string): Promise<LandParcel[]> {
-    const response = await fetch(`/data/parcels/${communeCode}.json`, { cache: 'no-store' });
+    const response = await fetch(`https://xemgiadat.netlify.app/data/parcels/${communeCode}.json`, { cache: 'no-store' });
     if (!response.ok) {
       throw new Error(`[LandParcelService] Failed to load shard ${communeCode} (${response.status})`);
     }

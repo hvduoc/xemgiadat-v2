@@ -166,11 +166,8 @@ export class MapController {
         return;
       }
 
-      const isProduction = import.meta.env.PROD;
-      const pmTilesUrl = isProduction
-        ? 'https://xemgiadat.netlify.app/tiles/danang_parcels_final.pmtiles'
-        : `${window.location.origin}/tiles/danang_parcels_final.pmtiles`;
-
+      const pmTilesUrl = 'https://xemgiadat.netlify.app/tiles/danang_parcels_final.pmtiles';
+      console.log('[MapController] Loading tiles from:', pmTilesUrl);
       const tileUrl = `pmtiles://${pmTilesUrl}`;
       
       this.map.addSource('cadastral-source', {

@@ -61,7 +61,7 @@ export class SearchService {
   private async loadIndexInternal(): Promise<void> {
     try {
       console.log('[SearchService] Loading search index...');
-      const response = await fetch('/data/search_index.json', { cache: 'no-store' });
+      const response = await fetch('https://xemgiadat.netlify.app/data/search_index.json', { cache: 'no-store' });
       if (!response.ok) {
         console.warn(`[SearchService] search_index.json not found (${response.status}).`);
         this.hasGlobalIndex = false;

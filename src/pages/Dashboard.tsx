@@ -13,10 +13,13 @@ import type { LandParcel } from '@/types';
 import MapViewer from '@/components/Map/MapViewer';
 import SearchBar from '@/components/Search/SearchBar';
 import * as storage from '@/utils/storage';
+import { LinkService } from '@/services/LinkService';
 
 export const Dashboard: React.FC = () => {
   const [selectedParcel, setSelectedParcel] = useState<LandParcel | null>(null);
   const [isSaved, setIsSaved] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isStreetViewOpen, setIsStreetViewOpen] = useState(false);
 
   const handleParcelSelect = (parcel: LandParcel) => {
     setSelectedParcel(parcel);
@@ -56,6 +59,44 @@ export const Dashboard: React.FC = () => {
       setIsSaved(false);
       console.log('[Dashboard] Parcel removed:', selectedParcel.id);
     }
+  };
+
+  const showToast = (message: string) => {
+    setToastMessage(message);
+    window.setTimeout(() => setToastMessage(null), 2000);
+  };
+
+  const handleShare = () => {
+    if (!selectedParcel) return;
+    const link = LinkService.generateShareLink(selectedParcel);
+    const shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(link)}`;
+    window.open(shareUrl, '_blank', 'noopener');
+  };
+
+  const handleCopyLink = async () => {
+    if (!selectedParcel) return;
+    const link = LinkService.generateShareLink(selectedParcel);
+
+    try {
+      await navigator.clipboard.writeText(link);
+      showToast('Da sao chep lien ket');
+    } catch (error) {
+      console.warn('[Dashboard] Clipboard copy failed:', error);
+      const textarea = document.createElement('textarea');
+      textarea.value = link;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      showToast('Da sao chep lien ket');
+    }
+  };
+
+  const handleDirections = () => {
+    if (!selectedParcel) return;
+    const [lng, lat] = selectedParcel.coordinates;
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+    window.open(url, '_blank', 'noopener');
   };
 
   return (
@@ -124,6 +165,68 @@ export const Dashboard: React.FC = () => {
                 Lưu Vào Portfolio
               </button>
             )}
+          </div>
+
+          <div className="pt-4 grid grid-cols-2 gap-2">
+            <button
+              onClick={handleShare}
+              className="px-3 py-2 bg-slate-100 text-slate-800 rounded-lg hover:bg-slate-200 text-xs font-semibold"
+            >
+              Chia se
+            </button>
+            <button
+              onClick={handleCopyLink}
+              className="px-3 py-2 bg-slate-100 text-slate-800 rounded-lg hover:bg-slate-200 text-xs font-semibold"
+            >
+              Copy link
+            </button>
+            <button
+              onClick={handleDirections}
+              className="px-3 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 text-xs font-semibold"
+            >
+              Chi duong
+            </button>
+            <button
+              onClick={() => setIsStreetViewOpen(true)}
+              className="px-3 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 text-xs font-semibold"
+            >
+              Street View
+            </button>
+          </div>
+        </div>
+      )}
+
+      {toastMessage && (
+        <div className="absolute bottom-6 left-6 z-30 bg-black/80 text-white text-sm px-4 py-2 rounded-lg shadow-lg">
+          {toastMessage}
+        </div>
+      )}
+
+      {isStreetViewOpen && selectedParcel && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl p-4 relative">
+            <button
+              onClick={() => setIsStreetViewOpen(false)}
+              className="absolute top-3 right-3 text-gray-500 hover:text-gray-900"
+              aria-label="Close Street View"
+            >
+              ✕
+            </button>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Street View</h3>
+            <iframe
+              title="Street View"
+              className="w-full h-[60vh] rounded-lg border"
+              src={`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${selectedParcel.coordinates[1]},${selectedParcel.coordinates[0]}`}
+              loading="lazy"
+            />
+            <a
+              className="mt-3 inline-block text-sm text-blue-600 hover:underline"
+              href={`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${selectedParcel.coordinates[1]},${selectedParcel.coordinates[0]}`}
+              target="_blank"
+              rel="noopener"
+            >
+              Mo Street View trong tab moi
+            </a>
           </div>
         </div>
       )}

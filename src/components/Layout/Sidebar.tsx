@@ -22,7 +22,7 @@ interface NavItem {
 }
 
 export const Sidebar: React.FC = () => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
 
   const navItems: NavItem[] = [
     {
@@ -101,11 +101,11 @@ export const Sidebar: React.FC = () => {
         <button
           onClick={() => {
             if (user?.id) {
-              console.log('[Sidebar] Posting form would open for user:', user.id);
-              // TODO: Open posting modal/form
+              console.log('[Sidebar] Opening posting modal for user:', user.id);
+              window.dispatchEvent(new CustomEvent('posting:open'));
             } else {
               console.log('[Sidebar] User not logged in - show login modal');
-              // TODO: Show login modal
+              window.dispatchEvent(new CustomEvent('auth:login'));
             }
           }}
           className="w-full px-4 py-2 text-sm font-bold text-white bg-gradient-to-r from-green-600 to-green-500 
@@ -116,7 +116,7 @@ export const Sidebar: React.FC = () => {
         <button
           onClick={() => {
             console.log('[Sidebar] Logout clicked');
-            // TODO: Implement logout
+            logout();
           }}
           className="w-full px-4 py-2 text-sm font-medium text-slate-300 hover:text-white 
                      border border-slate-600 rounded-lg hover:bg-slate-700 transition-all"

@@ -1,0 +1,1969 @@
+=== XEMGIADAT V2 PROJECT SNAPSHOT ===
+Generated at: Mon Feb 16 10:18:59 UTC 2026
+=====================================
+
+
+[1. DIRECTORY STRUCTURE]
+.
+./assets
+./assets/index.js
+./assets/index.css
+./types.ts
+./postcss.config.js
+./ADMIN_CUSTOM_CLAIMS_SETUP.md
+./FIREBASE_SHARE_FEATURE_REQUEST.md
+./tsconfig.json
+./IMPLEMENTATION_SUMMARY.md
+./playwright.config.cjs
+./PROJECT_V2_REPORT.txt
+./PROJECT_SNAPSHOT_20260216.txt
+./tests
+./tests/v4-monetization.spec.cjs
+./tests/hotfix-paths.spec.cjs
+./tests/v3-ai-oracle.spec.cjs
+./tests/v4.2-stabilization.spec.cjs
+./tests/bottom-sheet-swipe.spec.cjs
+./tests/v4.3-rescue-polish.spec.cjs
+./firestore.rules
+./vite.config.ts
+./package.json
+./App.tsx
+./DATA_DICTIONARY.md
+./metadata.json
+./FIRESTORE_RULES_DEPLOY.md
+./REQUEST_OLD_PROJECT_INFO.md
+./cautruc.txt
+./chot
+./package-lock.json
+./public
+./public/tiles
+./public/tiles/danang_parcels_final.pmtiles
+./public/data
+./public/data/parcels
+./public/data/search_index.json
+./index.html
+./data
+./data/land-law-2024.json
+./scripts
+./scripts/build_index.js
+./scripts/inspect_pmtiles_v2.cjs
+./scripts/inspect_pmtiles.js
+./scripts/inspect_pmtiles.cjs
+./scripts/generate_search_index.cjs
+./raw_data
+./raw_data/20225.geojson
+./raw_data/20207.geojson
+./raw_data/20198.geojson
+./raw_data/20203.geojson
+./raw_data/20260.geojson
+./raw_data/20209.geojson
+./raw_data/20281.geojson
+./raw_data/20197.geojson
+./raw_data/20287.geojson
+./raw_data/20320.geojson
+./raw_data/20236.geojson
+./raw_data/20212.geojson
+./raw_data/20305.geojson
+./raw_data/20194.geojson
+./raw_data/20296.geojson
+./raw_data/20257.geojson
+./raw_data/20317.geojson
+./raw_data/20206.geojson
+./raw_data/20299.geojson
+./raw_data/20224.geojson
+./raw_data/20242.geojson
+./raw_data/20227.geojson
+./raw_data/20275.geojson
+./raw_data/20266.geojson
+./raw_data/20251.geojson
+./raw_data/20302.geojson
+./raw_data/20233.geojson
+./raw_data/20230.geojson
+./raw_data/20246.geojson
+./raw_data/20314.geojson
+./raw_data/20218.geojson
+./raw_data/20293.geojson
+./raw_data/20221.geojson
+./raw_data/20272.geojson
+./raw_data/20248.geojson
+./raw_data/20269.geojson
+./raw_data/20285.geojson
+./raw_data/20332.geojson
+./raw_data/20239.geojson
+./raw_data/20329.geojson
+./raw_data/20200.geojson
+./raw_data/20254.geojson
+./raw_data/20215.geojson
+./raw_data/20290.geojson
+./raw_data/20284.geojson
+./raw_data/20245.geojson
+./raw_data/20258.geojson
+./raw_data/20323.geojson
+./raw_data/20326.geojson
+./raw_data/20195.geojson
+./raw_data/20311.geojson
+./raw_data/20308.geojson
+./raw_data/20278.geojson
+./raw_data/20312.geojson
+./raw_data/20263.geojson
+./raw_data/20306.geojson
+./tailwind.config.js
+./workers
+./workers/searchWorker.ts
+./DEPLOYMENT_INSTRUCTIONS.md
+./README.md
+./REFACTORING_SUMMARY.md
+./src
+./src/types
+./src/types/index.ts
+./src/components
+./src/components/Common
+./src/components/Search
+./src/components/Map
+./src/components/Layout
+./src/styles
+./src/styles/main.css
+./src/init.ts
+./src/main.tsx
+./src/App.tsx
+./src/layouts
+./src/layouts/DashboardLayout.tsx
+./src/main.js
+./src/hooks
+./src/contexts
+./src/contexts/AuthContext.tsx
+./src/services
+./src/services/LandParcelService.ts
+./src/services/SearchService.ts
+./src/services/MapController.ts
+./src/raw_data
+./src/raw_data/build_full_index.cjs
+./src/utils
+./src/utils/storage.ts
+./src/utils/cdnTracker.ts
+./src/utils/dateFormatter.ts
+./src/config
+./src/config/firebase.ts
+./src/pages
+./src/pages/Dashboard.tsx
+./src/pages/Portfolio.tsx
+./PRODUCTION_DEPLOYMENT.md
+
+
+[2. CONFIGURATION FILES]
+
+--- FILE: package.json ---
+{
+  "name": "gis-land-price-pro---danang-2025",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "postbuild": "rm -rf dist/tiles",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d dist",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.460.0",
+    "maplibre-gl": "^5.18.0",
+    "pmtiles": "^4.4.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "react-router-dom": "^7.13.0",
+    "tailwind-merge": "^3.4.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "@tailwindcss/postcss": "^4.1.18",
+    "@tailwindcss/vite": "^4.1.18",
+    "@types/node": "^22.19.11",
+    "@vitejs/plugin-react": "^5.0.0",
+    "autoprefixer": "^10.4.24",
+    "gh-pages": "^6.3.0",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.18",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0"
+  }
+}
+
+--- FILE: tsconfig.json ---
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "experimentalDecorators": true,
+    "useDefineForClassFields": false,
+    "module": "ESNext",
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "skipLibCheck": true,
+    "types": [
+      "node"
+    ],
+    "baseUrl": ".",
+    "moduleResolution": "bundler",
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "allowJs": true,
+    "jsx": "react-jsx",
+    "paths": {
+      "@/*": [
+        "src/*"
+      ]
+    },
+    "allowImportingTsExtensions": true,
+    "noEmit": true
+  }
+}
+--- FILE: vite.config.ts ---
+import path from 'path';
+import { defineConfig, loadEnv } from 'vite';
+import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
+
+export default defineConfig(({ mode }) => {
+    const env = loadEnv(mode, '.', '');
+    return {
+      base: '/xemgiadat-v2/',
+      build: {
+        outDir: 'dist',
+        emptyOutDir: true,
+        rollupOptions: {
+          input: path.resolve(__dirname, 'src/main.tsx'),
+          output: {
+            entryFileNames: 'assets/index.js',
+            chunkFileNames: 'assets/[name].js',
+            assetFileNames: 'assets/[name][extname]',
+          },
+        },
+      },
+      server: {
+        host: '0.0.0.0',
+        port: 3000,
+        strictPort: true,
+        allowedHosts: true,
+        hmr: {
+          clientPort: 443,
+        },
+      },
+      plugins: [react(), tailwindcss()],
+      define: {
+        'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
+        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
+      },
+      resolve: {
+        alias: {
+          '@': path.resolve(__dirname, './src'),
+        }
+      }
+    };
+});
+
+--- FILE: firestore.rules ---
+// ===================================
+// FIREBASE FIRESTORE SECURITY RULES v2
+// ===================================
+// Updated for xemgiadat-v2 with optimized data model
+// Contact info (phone/email) now stored in users collection, not listings
+// Status auto-approved for MVP (can add approval workflow later)
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- ADMIN UID (Ba Được) ---
+    // Hardcoded admin user ID for special permissions
+    function isAdmin() {
+      return request.auth != null && request.auth.uid == 'FEpPWWT1EaTWQ9FOqBxWN5FeEJk1';
+    }
+
+    // ========================================
+    // USERS COLLECTION
+    // ========================================
+    match /users/{userId} {
+      // Anyone can read user profiles (for listings contact info display)
+      allow read: if true;
+      
+      // Users can create/update only their own profile
+      allow create, update: if request.auth != null 
+                            && request.auth.uid == userId;
+      
+      // Users can delete their own profile (or admin can delete)
+      allow delete: if request.auth != null 
+                    && (request.auth.uid == userId || isAdmin());
+    }
+    
+    // ========================================
+    // LISTINGS COLLECTION (v2 Schema)
+    // ========================================
+    // Changed from v1:
+    // - Removed: name, userName, userEmail, phone (get from users collection)
+    // - Added: loaiGiaoDich (transaction type)
+    // - Status: auto-approved for MVP
+    match /listings/{listingId} {
+      // Anyone can read listings (public data)
+      allow read: if true;
+
+      // Authenticated users can create listings with validation
+      allow create: if request.auth != null
+              && request.resource.data.userId == request.auth.uid // Must own the listing
+              && request.resource.data.status == 'approved' // Auto-approve
+              && (
+                // Case 1: Negotiable price
+                (request.resource.data.isNegotiable == true 
+                 && (request.resource.data.priceValue == 0 || request.resource.data.priceValue == null || request.resource.data.priceValue is number))
+                ||
+                // Case 2: Fixed price
+                (request.resource.data.priceValue is number 
+                 && request.resource.data.priceValue > 0
+                 && request.resource.data.priceUnit is string)
+              )
+              // Optional fields validation
+              && (request.resource.data.note == null || request.resource.data.note is string)
+              && (request.resource.data.lat is number)
+              && (request.resource.data.lng is number);
+      
+      // Users can update/delete their own listings, or admin can manage all
+      allow update, delete: if request.auth != null 
+                            && (request.auth.uid == resource.data.userId || isAdmin());
+    }
+    
+    // ========================================
+    // PORTFOLIOS COLLECTION (Legacy from v1)
+    // ========================================
+    match /portfolios/{portfolioId} {
+      // Allow read if:
+      // - Is owner of portfolio
+      // - Or portfolio has visibility = 'public'
+      // - Or is Admin
+      allow read: if request.auth != null && 
+        (resource.data.userId == request.auth.uid || 
+         resource.data.visibility == 'public' ||
+         isAdmin());
+
+      // Only owner can create/update
+      allow create, update: if request.auth != null && 
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.keys().hasAll(['name', 'visibility', 'userId']) &&
+        request.resource.data.visibility in ['private', 'public'] &&
+        request.resource.data.name is string &&
+        request.resource.data.name.size() > 0 &&
+        request.resource.data.name.size() <= 200 &&
+        // Validate optional field types
+        (request.resource.data.price == null || request.resource.data.price is string) &&
+        (request.resource.data.area == null || request.resource.data.area is string) &&
+        (request.resource.data.notes == null || request.resource.data.notes is string) &&
+        (request.resource.data.images == null || request.resource.data.images is list) &&
+        (request.resource.data.lat == null || request.resource.data.lat is number) &&
+        (request.resource.data.lng == null || request.resource.data.lng is number);
+
+      // Only owner or admin can delete
+      allow delete: if request.auth != null && 
+        (resource.data.userId == request.auth.uid || isAdmin());
+    }
+    
+    // ========================================
+    // FEEDBACK COLLECTION
+    // ========================================
+    match /feedback/{feedbackId} {
+      // Only admin can read feedback
+      allow read: if isAdmin();
+      
+      // Anyone can submit feedback (no auth required for user convenience)
+      allow create: if true;
+      
+      // Only admin can update/delete feedback
+      allow update, delete: if isAdmin();
+    }
+
+    // ========================================
+    // ANALYTICS COLLECTION
+    // ========================================
+    match /analytics/{analyticsId} {
+      // Only admin can read/write analytics
+      allow read, write: if isAdmin();
+    }
+
+    // ========================================
+    // BETA SIGNUPS COLLECTION
+    // ========================================
+    match /beta-signups/{signupId} {
+      // Only admin can read beta signups
+      allow read: if isAdmin();
+      
+      // Anyone can register for beta (with email validation)
+      allow create: if request.resource.data.email is string 
+                    && request.resource.data.email.matches('.*@.*') // Basic email validation
+                    && request.resource.data.name is string
+                    && request.resource.data.name.size() > 0;
+      
+      // Only admin can update/delete beta signups
+      allow update, delete: if isAdmin();
+    }
+
+    // ========================================
+    // DEFAULT DENY RULE (Security)
+    // ========================================
+    // Deny access to all other collections not explicitly allowed
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+
+// ===================================
+// DEPLOYMENT INSTRUCTIONS:
+// ===================================
+// 1. Copy entire content above
+// 2. Go to Firebase Console → Firestore Database → Rules
+// 3. Paste into editor and click "Publish"
+// 4. Wait 1-2 minutes for rules to propagate
+
+// ===================================
+// CHANGES FROM v1 RULES:
+// ===================================
+// ✅ Listings: Removed name, userName, userEmail, phone (get from users)
+// ✅ Listings: Added validation for loaiGiaoDich (transaction type)
+// ✅ Listings: Status auto-approved for MVP (no pending workflow)
+// ✅ Users: Public read access for contact info display
+// ✅ Portfolios: Preserved visibility + admin logic from v1
+// ✅ Feedback: Preserved admin-only read, public create
+// ✅ Analytics: Preserved admin-only access
+// ✅ Beta-signups: Preserved from v1
+// ✅ Default deny: Security best practice
+// ✅ Admin function: Centralized admin check
+
+// ===================================
+// NOTES:
+// ===================================
+// - Admin UID: FEpPWWT1EaTWQ9FOqBxWN5FeEJk1 (Ba Được)
+// - Contact info (phone/email) fetched from users collection at display time
+// - Listings auto-approved to reduce friction (can add approval later)
+// - Backward compatible with v1 data (old listings with userName/phone still readable)
+
+--- FILE: tailwind.config.js ---
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+  ],
+  theme: {
+    extend: {
+      animation: {
+        'slide-up': 'slideUp 0.3s ease-out',
+      },
+      keyframes: {
+        slideUp: {
+          '0%': { transform: 'translateY(20px)', opacity: '0' },
+          '100%': { transform: 'translateY(0)', opacity: '1' },
+        },
+      },
+    },
+  },
+  plugins: [],
+}
+
+
+[3. DATA SCHEMA / DICTIONARY]
+
+--- FILE: DATA_DICTIONARY.md ---
+# Data Dictionary
+
+## Danang Cadastral Schema (Key Fields)
+
+- Land Type: KyHieuMucDichSuDung
+- Area: DienTich
+- Sheet: SoHieuToBanDo
+- Parcel: SoThuTuThua
+- Commune Code: MaXa
+
+## Mapping Notes
+
+- These keys should be checked first when mapping parcel properties.
+- Fallback keys are allowed for legacy or mixed data sources.
+
+
+[4. CORE SERVICES (SRC/SERVICES)]
+
+--- FILE: src/services/LandParcelService.ts ---
+import type { LandParcel } from '@/types';
+
+type ShardIndex = Record<string, [number, number]>;
+
+type ShardFile = {
+  version?: string;
+  generated_at?: string;
+  ma_xa?: string;
+  total?: number;
+  index?: ShardIndex;
+};
+
+export class LandParcelService {
+  private static instance: LandParcelService | null = null;
+
+  private shardCache = new Map<string, LandParcel[]>();
+  private indexCache = new Map<string, Map<string, LandParcel>>();
+  private loadPromises = new Map<string, Promise<LandParcel[]>>();
+  private communeList: string[] | null = null;
+  private communeListPromise: Promise<string[]> | null = null;
+
+  private constructor() {
+    // Singleton
+  }
+
+  static getInstance(): LandParcelService {
+    if (!LandParcelService.instance) {
+      LandParcelService.instance = new LandParcelService();
+    }
+    return LandParcelService.instance;
+  }
+
+  /**
+   * Map properties from PMTiles feature to LandParcel
+   * Handles multiple property name variations from different data sources
+   */
+  private mapPropertiesToParcel(
+    soTo: number,
+    soThua: number,
+    coordinates: [number, number],
+    properties?: Record<string, any>
+  ): LandParcel {
+    const props = properties || {};
+
+    console.log('[LandParcelService] 🔥 RAW PROPERTIES:', {
+      keys: Object.keys(props),
+      sample: Object.entries(props).slice(0, 10),
+      full: props
+    });
+
+    const mappedSoTo = Number(
+      props.SoHieuToBanDo ?? props.so_to ?? props.soTo ?? soTo ?? 0
+    );
+    const mappedSoThua = Number(
+      props.SoThuTuThua ?? props.so_thua ?? props.soThua ?? soThua ?? 0
+    );
+
+    // Map area with multiple fallback options (Danang cadastral schema first)
+    const dien_tich = Number(
+      props.DienTich ||
+      props.dien_tich ||
+      props.DIEN_TICH ||
+      props.dt ||
+      props.DT ||
+      props.shape_area ||
+      props.SHAPE_Area ||
+      props.area ||
+      props.Area ||
+      0
+    );
+
+    // Map land type with multiple fallback options (Danang cadastral schema first)
+    const landTypeKeys = [
+      'KyHieuMucDichSuDung',
+      'loai_dat', 'LoaiDat', 'LOAI_DAT',
+      'mdsd', 'MDSD', 'Mục đích sử dụng', 'MucDichSuDung',
+      'kh_2030', 'KH_2030', 'KH2030',
+      'kh_sdd', 'KH_SDD',
+      'txtLoaiDat', 'Loai', 'Type', 'Category',
+      'label', 'Label', 'Text'
+    ];
+
+    const propsKeyLookup = new Map<string, string>();
+    Object.keys(props).forEach((key) => {
+      propsKeyLookup.set(key.toLowerCase(), key);
+    });
+
+    let loaiDatValue: unknown;
+    for (const key of landTypeKeys) {
+      const directValue = props[key];
+      if (directValue !== undefined && directValue !== null && directValue !== '') {
+        loaiDatValue = directValue;
+        break;
+      }
+
+      const matchedKey = propsKeyLookup.get(key.toLowerCase());
+      if (matchedKey) {
+        const matchedValue = props[matchedKey];
+        if (matchedValue !== undefined && matchedValue !== null && matchedValue !== '') {
+          loaiDatValue = matchedValue;
+          break;
+        }
+      }
+    }
+
+    const loai_dat = String(loaiDatValue ?? props.KyHieuMucDichSuDung ?? props.loai_dat ?? 'Không xác định').trim();
+
+    // Map address with multiple fallback options (Danang cadastral schema first)
+    const dia_chi = String(
+      props.DiaChi ||
+      props.dia_chi ||
+      props.DIA_CHI ||
+      props.dc ||
+      props.DC ||
+      props.address ||
+      props.thua_dat_so ||
+      `Tờ ${mappedSoTo}, Thửa ${mappedSoThua}`
+    ).trim();
+
+    console.log('[LandParcelService] 📍 Mapped parcel:', {
+      soTo: mappedSoTo,
+      soThua: mappedSoThua,
+      dien_tich,
+      loai_dat,
+      dia_chi,
+      coordinates
+    });
+
+    return {
+      id: props.id || props.OBJECTID || `${mappedSoTo}:${mappedSoThua}`,
+      so_to: mappedSoTo,
+      so_thua: mappedSoThua,
+      dien_tich,
+      loai_dat,
+      dia_chi,
+      coordinates,
+    };
+  }
+
+  async getCommuneList(): Promise<string[]> {
+    if (this.communeList) {
+      return this.communeList;
+    }
+
+    if (this.communeListPromise) {
+      return this.communeListPromise;
+    }
+
+    this.communeListPromise = (async () => {
+      const response = await fetch('/data/parcels/communes.json', { cache: 'no-store' });
+      if (!response.ok) {
+        throw new Error(`[LandParcelService] Failed to load communes.json (${response.status})`);
+      }
+
+      const data = await response.json();
+      const communes = Array.isArray(data?.communes) ? data.communes : [];
+      this.communeList = communes.map((code: unknown) => String(code)).filter(Boolean);
+      return this.communeList;
+    })();
+
+    return this.communeListPromise;
+  }
+
+  async fetchParcelsByCommune(communeCode: string): Promise<LandParcel[]> {
+    const code = String(communeCode || '').trim();
+    if (!code) {
+      return [];
+    }
+
+    if (this.shardCache.has(code)) {
+      return this.shardCache.get(code)!;
+    }
+
+    if (this.loadPromises.has(code)) {
+      return this.loadPromises.get(code)!;
+    }
+
+    const promise = this.loadShardInternal(code);
+    this.loadPromises.set(code, promise);
+    return promise;
+  }
+
+  async getParcelDetails(
+    soTo: number,
+    soThua: number,
+    communeCode: string,
+    featureProperties?: Record<string, any>
+  ): Promise<LandParcel | null> {
+    const code = String(communeCode || '').trim();
+    if (!code) {
+      return null;
+    }
+
+    try {
+      // If feature properties are provided (from PMTiles click), use them
+      if (featureProperties) {
+        console.log('[LandParcelService] Using PMTiles feature properties directly');
+        // Get coordinates from cache or use defaults
+        await this.fetchParcelsByCommune(code);
+        const index = this.indexCache.get(code);
+        const key = `${soTo}:${soThua}`;
+        const cachedParcel = index?.get(key);
+        const coordinates: [number, number] = cachedParcel?.coordinates || [0, 0];
+
+        return this.mapPropertiesToParcel(soTo, soThua, coordinates, featureProperties);
+      }
+
+      // Otherwise, load from cache
+      await this.fetchParcelsByCommune(code);
+      const index = this.indexCache.get(code);
+      if (!index) {
+        console.warn('[LandParcelService] Index not found for commune:', code);
+        return null;
+      }
+
+      const key = `${soTo}:${soThua}`;
+      const parcel = index.get(key);
+      if (!parcel) {
+        console.warn('[LandParcelService] Parcel not found:', key, 'in commune:', code);
+        return null;
+      }
+
+      return parcel;
+    } catch (error) {
+      console.error('[LandParcelService] Error in getParcelDetails:', error);
+      return null;
+    }
+  }
+
+  private async loadShardInternal(communeCode: string): Promise<LandParcel[]> {
+    const response = await fetch(`/data/parcels/${communeCode}.json`, { cache: 'no-store' });
+    if (!response.ok) {
+      throw new Error(`[LandParcelService] Failed to load shard ${communeCode} (${response.status})`);
+    }
+
+    const data: ShardFile = await response.json();
+    const index: ShardIndex = data?.index || {};
+
+    const parcels: LandParcel[] = [];
+    const indexMap = new Map<string, LandParcel>();
+
+    Object.entries(index).forEach(([key, coords]) => {
+      const parts = key.split(':');
+      if (parts.length !== 2) {
+        return;
+      }
+
+      const soTo = Number(parts[0]);
+      const soThua = Number(parts[1]);
+      if (!Number.isFinite(soTo) || !Number.isFinite(soThua)) {
+        return;
+      }
+
+      // Use mapping function with empty properties (shard files don't contain detailed data)
+      const parcel = this.mapPropertiesToParcel(soTo, soThua, [coords[0], coords[1]], {});
+
+      parcels.push(parcel);
+      indexMap.set(parcel.id, parcel);
+    });
+
+    this.shardCache.set(communeCode, parcels);
+    this.indexCache.set(communeCode, indexMap);
+
+    return parcels;
+  }
+}
+
+--- FILE: src/services/MapController.ts ---
+/**
+ * MapController Service
+ * Singleton class for MapLibre GL initialization and interactions
+ * 
+ * Architecture:
+ * - Separates map lifecycle from React component lifecycle
+ * - Prevents WebGL context loss on component re-renders
+ * - Provides clean API for UI components to interact with map
+ * 
+ * Usage:
+ *   const controller = MapController.getInstance();
+ *   controller.initialize('map-container').then(() => {
+ *     controller.flyTo([108.2, 16.0], 14);
+ *   });
+ */
+
+import type { LandParcel } from '@/types';
+import { LandParcelService } from '@/services/LandParcelService';
+
+// Dynamic import to avoid build-time errors
+let maplibregl: any;
+let Protocol: any;
+
+async function loadMapDependencies() {
+  if (!maplibregl) {
+    maplibregl = (await import('maplibre-gl')).default;
+  }
+  if (!Protocol) {
+    const pmTiles = await import('pmtiles');
+    Protocol = pmTiles.Protocol;
+  }
+}
+
+type MapInstance = any;
+
+export class MapController {
+  private static instance: MapController | null = null;
+  private map: MapInstance | null = null;
+  private protocol: any = null;
+  private isInitialized: boolean = false;
+
+  private constructor() {
+    // Private constructor for singleton pattern
+  }
+
+  /**
+   * Get singleton instance
+   */
+  static getInstance(): MapController {
+    if (!MapController.instance) {
+      MapController.instance = new MapController();
+    }
+    return MapController.instance;
+  }
+
+  /**
+   * Initialize map and register PMTiles protocol
+   * @param containerId - HTML element ID for map container
+   * @returns Promise that resolves when map is fully loaded
+   */
+  async initialize(containerId: string): Promise<void> {
+    if (this.isInitialized) {
+      console.log('[MapController] Already initialized, skipping');
+      return;
+    }
+
+    try {
+      console.log('[MapController] Starting initialization...');
+      
+      // Load dependencies dynamically
+      await loadMapDependencies();
+
+      // Register PMTiles protocol
+      this.protocol = new Protocol();
+      
+      // Add protocol handler to maplibregl
+      if (!maplibregl._protocols) {
+        maplibregl._protocols = {};
+      }
+      
+      if (!maplibregl._protocols.pmtiles) {
+        maplibregl.addProtocol('pmtiles', (params: any, callback: any) => {
+          return this.protocol.tile(params, callback);
+        });
+        console.log('[MapController] ✓ PMTiles protocol registered');
+      }
+
+      // Initialize map
+      const container = document.getElementById(containerId);
+      if (!container) {
+        throw new Error(`Container with id "${containerId}" not found`);
+      }
+
+      // Create map with basic style (OSM tiles)
+      this.map = new maplibregl.Map({
+        container,
+        style: {
+          version: 8,
+          sources: {
+            osm: {
+              type: 'raster',
+              tiles: [
+                'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+                'https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+              ],
+              tileSize: 256,
+              attribution: '© OpenStreetMap, © CARTO',
+            },
+          },
+          layers: [
+            {
+              id: 'osm',
+              type: 'raster',
+              source: 'osm',
+              paint: { 'raster-opacity': 0.85 },
+            },
+          ],
+        },
+        center: [108.2022, 16.0544], // Đà Nẵng coordinates
+        zoom: 12,
+        pitch: 0,
+        bearing: 0,
+        hash: false, // Disable hash to prevent location tracking issues
+        attributionControl: true,
+      });
+
+      // Wait for map to be fully loaded
+      await new Promise<void>((resolve) => {
+        if (this.map!.loaded()) {
+          resolve();
+        } else {
+          this.map!.on('load', () => resolve());
+        }
+      });
+
+      // Add PMTiles layer (if tiles file exists)
+      await this.addPMTilesLayer();
+
+      // Force zoom to ensure PMTiles layer is visible
+      if (this.map) {
+        this.map.jumpTo({ zoom: 15 });
+      }
+
+      this.isInitialized = true;
+      console.log('[MapController] ✓ Initialization complete');
+    } catch (error) {
+      console.error('[MapController] Initialization error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Add PMTiles vector layer to map with auto-detection of layer ID
+   */
+  private async addPMTilesLayer(): Promise<void> {
+    if (!this.map) return;
+
+    try {
+      // Check if layer already exists
+      if (this.map.getSource('cadastral-source')) {
+        console.log('[MapController] PMTiles source already added');
+        return;
+      }
+
+      const isProduction = import.meta.env.PROD;
+      const pmTilesUrl = isProduction
+        ? 'https://xemgiadat.netlify.app/tiles/danang_parcels_final.pmtiles'
+        : `${window.location.origin}/tiles/danang_parcels_final.pmtiles`;
+
+      const tileUrl = `pmtiles://${pmTilesUrl}`;
+      
+      this.map.addSource('cadastral-source', {
+        type: 'vector',
+        url: tileUrl,
+        attribution: 'Dữ liệu Địa chính Đà Nẵng',
+      });
+
+      // Set the actual layer ID detected from PMTiles metadata (v3)
+      // Metadata inspection revealed the vector layer is named "default"
+      const layerId = 'default';
+      console.log('[MapController] Using PMTiles layer ID:', layerId);
+
+      // Add fill layer (parcels)
+      this.map.addLayer({
+        id: 'parcels-fill',
+        type: 'fill',
+        source: 'cadastral-source',
+        'source-layer': layerId,
+        paint: {
+          'fill-color': 'rgba(0, 0, 0, 0)',
+          'fill-outline-color': '#ff0000',
+        },
+      });
+
+      this.map.on('mouseenter', 'parcels-fill', () => {
+        if (this.map) {
+          this.map.getCanvas().style.cursor = 'pointer';
+        }
+      });
+
+      this.map.on('mouseleave', 'parcels-fill', () => {
+        if (this.map) {
+          this.map.getCanvas().style.cursor = '';
+        }
+      });
+
+      this.map.on('click', 'parcels-fill', async (event: any) => {
+        const feature = event?.features?.[0];
+        if (!feature) {
+          console.log('[MapClick] No features clicked');
+          return;
+        }
+
+        const props = feature.properties || {};
+        console.log('[MapClick] Feature properties:', props);
+
+        // Extract parcel identifiers with multiple fallback options
+        const soTo = Number(
+          props.SoHieuToBanDo || props['Số hiệu tờ bản đồ'] || props.so_to || props.soTo || 
+          props.ToBanDo || props.tobanDo || props.to || 0
+        );
+        const soThua = Number(
+          props.SoThuTuThua || props['Số thửa'] || props.so_thua || props.soThua || 
+          props.ThuaTu || props.thuaTu || props.thu || 0
+        );
+        const maXa = String(
+          props.ma_xa || props.MaXa || props['Mã xã'] || props.commune_code || 
+          props.COMMUNE_CODE || props.commune || ''
+        ).trim();
+
+        console.log('[MapClick] Extracted IDs:', { soTo, soThua, maXa });
+
+        if (!Number.isFinite(soTo) || !Number.isFinite(soThua) || !maXa) {
+          console.warn('[MapClick] Missing parcel identifiers - cannot proceed');
+          return;
+        }
+
+        try {
+          console.log('[MapClick] Fetching parcel details...');
+          const landParcelService = LandParcelService.getInstance();
+          const parcel = await landParcelService.getParcelDetails(soTo, soThua, maXa, props);
+          
+          if (parcel) {
+            console.log('[MapClick] ✓ Parcel found:', parcel);
+            this.highlightParcel(parcel);
+            
+            // Dispatch event for React components to listen
+            window.dispatchEvent(new CustomEvent('parcel:selected', { detail: parcel }));
+            console.log('[MapClick] ✓ Event dispatched: parcel:selected');
+          } else {
+            console.warn('[MapClick] Parcel not found in database');
+          }
+        } catch (error) {
+          console.error('[MapClick] Error fetching parcel details:', error);
+        }
+      });
+
+      console.log('[MapController] ✓ PMTiles layers added');
+    } catch (error) {
+      // PMTiles file may not exist yet (OK during development)
+      console.warn('[MapController] PMTiles layer not available:', error);
+    }
+  }
+
+  /**
+   * Fly to coordinates with animation
+   */
+  flyTo(
+    coords: [number, number],
+    zoom: number = 16,
+    options?: { duration?: number; pitch?: number }
+  ): void {
+    if (!this.map) {
+      console.error('[MapController] Map not initialized');
+      return;
+    }
+
+    this.map.flyTo({
+      center: coords,
+      zoom,
+      duration: options?.duration || 1500,
+      pitch: options?.pitch || 0,
+    });
+
+    console.log('[MapController] Flying to', coords, 'zoom:', zoom);
+  }
+
+  /**
+   * Highlight a parcel on map
+   */
+  highlightParcel(parcel: LandParcel): void {
+    if (!this.map) {
+      console.error('[MapController] Map not initialized');
+      return;
+    }
+
+    // Fly to parcel
+    this.flyTo(parcel.coordinates, 18);
+
+    // Optional: Add visual highlight (marker, popup, etc.)
+    console.log('[MapController] Highlighted parcel:', parcel.id);
+  }
+
+  /**
+   * Get current map instance (advanced users only)
+   */
+  getMap(): MapInstance | null {
+    return this.map;
+  }
+
+  /**
+   * Check if map is initialized
+   */
+  isReady(): boolean {
+    return this.isInitialized && this.map !== null;
+  }
+
+  /**
+   * Cleanup and destroy map
+   */
+  destroy(): void {
+    if (this.map) {
+      this.map.remove();
+      this.map = null;
+      this.protocol = null;
+      this.isInitialized = false;
+      console.log('[MapController] ✓ Cleaned up');
+    }
+  }
+}
+
+// Export singleton getter for convenience
+export const mapController = MapController.getInstance();
+
+--- FILE: src/services/SearchService.ts ---
+/**
+ * SearchService
+ * Real-data search engine for land parcels
+ *
+ * - Uses optional search_index.json if present
+ * - Otherwise scopes search to active commune shards only
+ */
+
+import type { LandParcel } from '@/types';
+import { LandParcelService } from '@/services/LandParcelService';
+
+interface SearchIndexEntry {
+  id: string;
+  so_to: number;
+  so_thua: number;
+  dien_tich?: number;
+  loai_dat?: string;
+  dia_chi?: string;
+  coordinates: [number, number];
+}
+
+type ParsedQuery = {
+  soTo?: number;
+  soThua?: number;
+  raw: string;
+};
+
+export class SearchService {
+  private static instance: SearchService | null = null;
+  private landParcelService = LandParcelService.getInstance();
+  private searchIndex: Map<string, LandParcel> = new Map();
+  private hasGlobalIndex = false;
+  private isLoaded = false;
+  private loadPromise: Promise<void> | null = null;
+  private activeCommunes: string[] = [];
+
+  private constructor() {
+    // Singleton
+  }
+
+  static getInstance(): SearchService {
+    if (!SearchService.instance) {
+      SearchService.instance = new SearchService();
+    }
+    return SearchService.instance;
+  }
+
+  async loadIndex(): Promise<void> {
+    if (this.loadPromise) {
+      return this.loadPromise;
+    }
+
+    if (this.isLoaded) {
+      return;
+    }
+
+    this.loadPromise = this.loadIndexInternal();
+    return this.loadPromise;
+  }
+
+  private async loadIndexInternal(): Promise<void> {
+    try {
+      console.log('[SearchService] Loading search index...');
+      const response = await fetch('/data/search_index.json', { cache: 'no-store' });
+      if (!response.ok) {
+        console.warn(`[SearchService] search_index.json not found (${response.status}).`);
+        this.hasGlobalIndex = false;
+        this.isLoaded = true;
+        return;
+      }
+
+      const data = await response.json();
+      if (Array.isArray(data)) {
+        data.forEach((entry: SearchIndexEntry) => {
+          this.addIndexEntry(entry);
+        });
+      } else if (typeof data === 'object') {
+        Object.values(data).forEach((entry: any) => {
+          if (entry && typeof entry === 'object') {
+            this.addIndexEntry(entry as SearchIndexEntry);
+          }
+        });
+      }
+
+      this.hasGlobalIndex = this.searchIndex.size > 0;
+      this.isLoaded = true;
+      console.log(`[SearchService] ✓ Index loaded with ${this.searchIndex.size} parcels`);
+    } catch (error) {
+      console.warn('[SearchService] Error loading index:', error);
+      this.hasGlobalIndex = false;
+      this.isLoaded = true;
+    }
+  }
+
+  async search(query: string): Promise<LandParcel[]> {
+    await this.loadIndex();
+
+    const raw = query?.trim() || '';
+    if (!raw) {
+      return [];
+    }
+
+    const parsed = this.parseParcelQuery(raw);
+
+    if (this.hasGlobalIndex) {
+      if (parsed) {
+        return this.searchGlobalIndexByParcel(parsed);
+      }
+      return this.searchGlobalIndexByAddress(raw);
+    }
+
+    if (!parsed) {
+      console.warn('[SearchService] Address search requires a global index.');
+      return [];
+    }
+
+    return this.searchWithinCommunes(parsed);
+  }
+
+  async findById(id: string): Promise<LandParcel | null> {
+    await this.loadIndex();
+
+    const parsed = this.parseParcelQuery(id);
+    if (!parsed) {
+      return null;
+    }
+
+    if (this.hasGlobalIndex && parsed.soTo !== undefined && parsed.soThua !== undefined) {
+      const key = this.normalizeKey(`${parsed.soTo}:${parsed.soThua}`);
+      return this.searchIndex.get(key) || null;
+    }
+
+    const results = await this.searchWithinCommunes(parsed);
+    return results[0] || null;
+  }
+
+  async getAllParcels(): Promise<LandParcel[]> {
+    await this.loadIndex();
+
+    if (!this.hasGlobalIndex) {
+      console.warn('[SearchService] Global index is not available.');
+      return [];
+    }
+
+    return Array.from(this.searchIndex.values());
+  }
+
+  isReady(): boolean {
+    return this.isLoaded;
+  }
+
+  setActiveCommunes(communes: string[]): void {
+    this.activeCommunes = communes.map(code => String(code)).filter(Boolean);
+  }
+
+  private addIndexEntry(entry: SearchIndexEntry): void {
+    const key = this.normalizeKey(`${entry.so_to}:${entry.so_thua}`);
+    this.searchIndex.set(key, {
+      id: entry.id || `${entry.so_to}:${entry.so_thua}`,
+      so_to: entry.so_to,
+      so_thua: entry.so_thua,
+      dien_tich: entry.dien_tich || 0,
+      loai_dat: entry.loai_dat || '',
+      dia_chi: entry.dia_chi || '',
+      coordinates: entry.coordinates,
+    });
+  }
+
+  private parseParcelQuery(query: string): ParsedQuery | null {
+    const input = query.trim();
+    if (!input) {
+      return null;
+    }
+
+    const twoNumberMatch = input.match(/^(\d+)\s*[:\s/\-]+\s*(\d+)$/);
+    if (twoNumberMatch) {
+      return {
+        soTo: Number(twoNumberMatch[1]),
+        soThua: Number(twoNumberMatch[2]),
+        raw: input,
+      };
+    }
+
+    const singleNumberMatch = input.match(/^(\d+)$/);
+    if (singleNumberMatch) {
+      return {
+        soThua: Number(singleNumberMatch[1]),
+        raw: input,
+      };
+    }
+
+    return null;
+  }
+
+  private normalizeKey(key: string): string {
+    return key
+      .trim()
+      .replace(/\s+/g, ':')
+      .replace(/-/g, ':')
+      .replace(/:/g, ':')
+      .toLowerCase();
+  }
+
+  private async searchGlobalIndexByParcel(parsed: ParsedQuery): Promise<LandParcel[]> {
+    if (parsed.soTo !== undefined && parsed.soThua !== undefined) {
+      const key = this.normalizeKey(`${parsed.soTo}:${parsed.soThua}`);
+      const exact = this.searchIndex.get(key);
+      return exact ? [exact] : [];
+    }
+
+    if (parsed.soThua !== undefined) {
+      const results: LandParcel[] = [];
+      const suffix = `:${parsed.soThua}`;
+      this.searchIndex.forEach((parcel, key) => {
+        if (key.endsWith(suffix)) {
+          results.push(parcel);
+        }
+      });
+      return results.slice(0, 20);
+    }
+
+    return [];
+  }
+
+  private async searchGlobalIndexByAddress(query: string): Promise<LandParcel[]> {
+    const needle = query.toLowerCase();
+    const results: LandParcel[] = [];
+
+    this.searchIndex.forEach(parcel => {
+      const haystack = `${parcel.dia_chi} ${parcel.loai_dat}`.toLowerCase();
+      if (haystack.includes(needle)) {
+        results.push(parcel);
+      }
+    });
+
+    return results.slice(0, 20);
+  }
+
+  private async searchWithinCommunes(parsed: ParsedQuery): Promise<LandParcel[]> {
+    if (this.activeCommunes.length === 0) {
+      console.warn('[SearchService] Commune is required before searching parcels.');
+      return [];
+    }
+
+    if (parsed.soTo !== undefined && parsed.soThua !== undefined) {
+      const lookups = await Promise.all(
+        this.activeCommunes.map(code =>
+          this.landParcelService.getParcelDetails(parsed.soTo!, parsed.soThua!, code)
+        )
+      );
+      return lookups.filter((parcel): parcel is LandParcel => Boolean(parcel));
+    }
+
+    if (parsed.soThua !== undefined) {
+      const results: LandParcel[] = [];
+      for (const code of this.activeCommunes) {
+        const parcels = await this.landParcelService.fetchParcelsByCommune(code);
+        parcels.forEach(parcel => {
+          if (parcel.so_thua === parsed.soThua) {
+            results.push(parcel);
+          }
+        });
+      }
+      return results.slice(0, 20);
+    }
+
+    return [];
+  }
+}
+// Export singleton instance for convenience
+export const searchService = SearchService.getInstance();
+
+[5. KEY UI COMPONENTS]
+
+--- FILE: src/App.tsx ---
+/**
+ * App Component
+ * Root component with routing configuration
+ * 
+ * Structure:
+ * - BrowserRouter: Enable routing
+ * - AuthProvider: Provide auth context globally
+ * - Routes: Define application routes
+ *   - Dashboard: Main map view
+ *   - Portfolio: Saved parcels
+ *   - Stats: Placeholder for future analytics
+ */
+
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from '@/contexts/AuthContext';
+import DashboardLayout from '@/layouts/DashboardLayout';
+import Dashboard from '@/pages/Dashboard';
+import Portfolio from '@/pages/Portfolio';
+
+/**
+ * Placeholder Stats Page
+ */
+const StatsPage: React.FC = () => (
+  <div className="w-full h-full flex items-center justify-center">
+    <div className="text-center">
+      <h2 className="text-3xl font-bold text-gray-900">Thống Kê</h2>
+      <p className="text-gray-600 mt-4">Tính năng này sẽ sớm được cập nhật</p>
+    </div>
+  </div>
+);
+
+/**
+ * Main App Component
+ */
+const App: React.FC = () => {
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <Routes>
+          {/* Dashboard Layout (with Sidebar) */}
+          <Route element={<DashboardLayout />}>
+            {/* Map page - default route */}
+            <Route index element={<Dashboard />} />
+            
+            {/* Portfolio page */}
+            <Route path="/portfolio" element={<Portfolio />} />
+            
+            {/* Stats page (placeholder) */}
+            <Route path="/stats" element={<StatsPage />} />
+          </Route>
+
+          {/* Catch-all: redirect to home */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </AuthProvider>
+    </BrowserRouter>
+  );
+};
+
+export default App;
+
+--- FILE: src/main.tsx ---
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+import './styles/main.css';
+
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
+
+--- FILE: src/components/Layout/Sidebar.tsx ---
+/**
+ * Sidebar Component
+ * Navigation sidebar for LandManager Pro dashboard
+ * 
+ * Features:
+ * - Responsive design with TailwindCSS
+ * - Active route highlighting
+ * - User profile section at bottom
+ * - Icons from lucide-react
+ */
+
+import React from 'react';
+import { NavLink } from 'react-router-dom';
+import { Map, FolderHeart, BarChart3, User } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+
+interface NavItem {
+  label: string;
+  path: string;
+  icon: React.ReactNode;
+  badge?: string;
+}
+
+export const Sidebar: React.FC = () => {
+  const { user } = useAuth();
+
+  const navItems: NavItem[] = [
+    {
+      label: 'Bản Đồ',
+      path: '/',
+      icon: <Map className="w-5 h-5" />,
+    },
+    {
+      label: 'Tài Sản Của Tôi',
+      path: '/portfolio',
+      icon: <FolderHeart className="w-5 h-5" />,
+      badge: '0',
+    },
+    {
+      label: 'Thống Kê',
+      path: '/stats',
+      icon: <BarChart3 className="w-5 h-5" />,
+    },
+  ];
+
+  return (
+    <aside className="w-64 h-screen bg-gradient-to-b from-slate-900 to-slate-800 text-white flex flex-col shadow-xl">
+      {/* Logo Section */}
+      <div className="p-6 border-b border-slate-700">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center font-bold">
+            LP
+          </div>
+          <h1 className="text-xl font-bold tracking-tight">
+            Land
+            <span className="text-blue-400">Manager</span>
+          </h1>
+        </div>
+        <p className="text-xs text-slate-400 mt-2">GIS Portfolio Hub</p>
+      </div>
+
+      {/* Navigation Items */}
+      <nav className="flex-1 p-4 space-y-2">
+        {navItems.map((item) => (
+          <NavLink
+            key={item.path}
+            to={item.path}
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+                isActive
+                  ? 'bg-blue-600 text-white shadow-lg'
+                  : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+              }`
+            }
+          >
+            <div className="flex-shrink-0">{item.icon}</div>
+            <span className="flex-1 text-sm font-medium">{item.label}</span>
+            {item.badge && (
+              <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+                {item.badge}
+              </span>
+            )}
+          </NavLink>
+        ))}
+      </nav>
+
+      {/* User Profile Section */}
+      <div className="p-4 border-t border-slate-700 space-y-3">
+        <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-slate-700 bg-opacity-50">
+          <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
+            <User className="w-6 h-6" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold truncate">{user?.name || 'Guest'}</p>
+            <p className="text-xs text-slate-400 truncate">
+              {user?.role === 'admin' ? 'Admin' : 'User'}
+            </p>
+          </div>
+        </div>
+        {/* Đăng Tin Button */}
+        <button
+          onClick={() => {
+            if (user?.id) {
+              console.log('[Sidebar] Posting form would open for user:', user.id);
+              // TODO: Open posting modal/form
+            } else {
+              console.log('[Sidebar] User not logged in - show login modal');
+              // TODO: Show login modal
+            }
+          }}
+          className="w-full px-4 py-2 text-sm font-bold text-white bg-gradient-to-r from-green-600 to-green-500 
+                     rounded-lg hover:shadow-lg transition-all active:scale-95"
+        >
+          ✓ Đăng Tin
+        </button>
+        <button
+          onClick={() => {
+            console.log('[Sidebar] Logout clicked');
+            // TODO: Implement logout
+          }}
+          className="w-full px-4 py-2 text-sm font-medium text-slate-300 hover:text-white 
+                     border border-slate-600 rounded-lg hover:bg-slate-700 transition-all"
+        >
+          Đăng Xuất
+        </button>
+      </div>
+
+      {/* Footer */}
+      <div className="px-4 py-3 text-center border-t border-slate-700">
+        <p className="text-xs text-slate-500">LandManager Pro v1.0</p>
+      </div>
+    </aside>
+  );
+};
+
+export default Sidebar;
+
+--- FILE: src/components/Map/MapViewer.tsx ---
+/**
+ * MapViewer Component
+ * Thin React wrapper for MapController
+ * 
+ * Responsibilities:
+ * - Renders map container div
+ * - Initializes MapController on mount
+ * - Cleans up resources on unmount
+ * 
+ * NOTE: All map logic is delegated to MapController service,
+ * NOT implemented here. This keeps separation of concerns.
+ */
+
+import React, { useEffect, useRef } from 'react';
+import { mapController } from '@/services/MapController';
+
+interface MapViewerProps {
+  containerId?: string;
+  onMapReady?: () => void;
+  className?: string;
+}
+
+/**
+ * MapViewer - React functional component for map display
+ * 
+ * Usage:
+ *   <MapViewer 
+ *     containerId="map-container"
+ *     onMapReady={() => console.log('Map ready!')}
+ *     className="w-full h-full"
+ *   />
+ */
+export const MapViewer: React.FC<MapViewerProps> = ({
+  containerId = 'map-container',
+  onMapReady,
+  className = 'w-full h-full',
+}) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const initPromiseRef = useRef<Promise<void> | null>(null);
+
+  useEffect(() => {
+    const initializeMap = async () => {
+      try {
+        // Initialize map (idempotent - safe to call multiple times)
+        if (!mapController.isReady()) {
+          await mapController.initialize(containerId);
+          console.log('[MapViewer] ✓ Map initialization successful');
+        }
+
+        // Callback when map is ready
+        if (onMapReady) {
+          onMapReady();
+        }
+      } catch (error) {
+        console.error('[MapViewer] Map initialization failed:', error);
+        // Optionally: display error message to user (toast, alert, etc.)
+      }
+    };
+
+    // Cache the initialization promise to avoid re-running on re-renders
+    if (!initPromiseRef.current) {
+      initPromiseRef.current = initializeMap();
+    }
+
+    return () => {
+      // Cleanup on unmount
+      // NOTE: We do NOT call mapController.destroy() here because:
+      // 1. MapController is a singleton (used globally)
+      // 2. Destroying on component unmount would break other components
+      // 3. Cleanup happens at app shutdown, not component unmount
+      console.log('[MapViewer] Unmounted (map persists for other components)');
+    };
+  }, [containerId, onMapReady]);
+
+  return (
+    <div
+      ref={containerRef}
+      id={containerId}
+      className={className}
+      style={{
+        position: 'relative',
+        overflow: 'hidden',
+        background: '#f0f0f0',
+      }}
+      data-testid="map-viewer"
+    >
+      {/* Loading state placeholder */}
+      <div
+        style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          zIndex: 1,
+          pointerEvents: 'none',
+          opacity: 0.3,
+        }}
+      >
+        <p className="text-gray-500">Initializing map...</p>
+      </div>
+    </div>
+  );
+};
+
+export default MapViewer;
+
+--- FILE: src/components/Search/SearchBar.tsx ---
+/**
+ * SearchBar Component
+ * Floating search input with dropdown results
+ * 
+ * Integration:
+ * - Uses SearchService to search parcels
+ * - Uses MapController to fly to selected parcel
+ * - Handles fuzzy search formats (33 48, 33:48, etc.)
+ */
+
+import React, { useState, useRef, useEffect } from 'react';
+import { Search, X } from 'lucide-react';
+import type { LandParcel } from '@/types';
+import { searchService } from '@/services/SearchService';
+import { mapController } from '@/services/MapController';
+
+interface SearchBarProps {
+  onParcelSelect?: (parcel: LandParcel) => void;
+  className?: string;
+}
+
+export const SearchBar: React.FC<SearchBarProps> = ({
+  onParcelSelect,
+  className = '',
+}) => {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<LandParcel[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  /**
+   * Handle search input change with debounce
+   */
+  const handleInputChange = async (value: string) => {
+    setQuery(value);
+
+    // Clear previous timer
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    if (!value.trim()) {
+      setResults([]);
+      setIsDropdownOpen(false);
+      return;
+    }
+
+    // Debounce: wait 300ms before searching
+    setIsSearching(true);
+    debounceTimerRef.current = setTimeout(async () => {
+      try {
+        const searchResults = await searchService.search(value);
+        setResults(searchResults);
+        setIsDropdownOpen(true);
+        console.log(`[SearchBar] Found ${searchResults.length} results for: "${value}"`);
+      } catch (error) {
+        console.error('[SearchBar] Search error:', error);
+        setResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300);
+  };
+
+  /**
+   * Handle parcel selection
+   */
+  const handleSelectParcel = async (parcel: LandParcel) => {
+    console.log('[SearchBar] Parcel selected:', parcel.id);
+
+    // Fly to parcel on map
+    try {
+      if (mapController.isReady()) {
+        console.log('[SearchBar] Flying to coordinates:', parcel.coordinates, 'zoom: 18');
+        mapController.flyTo(parcel.coordinates, 18);
+        
+        // Dispatch custom event for other components
+        window.dispatchEvent(new CustomEvent('parcel:selected', { detail: parcel }));
+        console.log('[SearchBar] ✓ Dispatched parcel:selected event');
+      }
+    } catch (error) {
+      console.warn('[SearchBar] Error navigating to parcel:', error);
+    }
+
+    // Callback to parent
+    if (onParcelSelect) {
+      onParcelSelect(parcel);
+    }
+
+    // Clear search
+    setQuery('');
+    setResults([]);
+    setIsDropdownOpen(false);
+
+    console.log('[SearchBar] ✓ Selection complete');
+  };
+
+  /**
+   * Handle clear button
+   */
+  const handleClear = () => {
+    setQuery('');
+    setResults([]);
+    setIsDropdownOpen(false);
+    searchInputRef.current?.focus();
+  };
+
+  /**
+   * Close dropdown on click outside
+   */
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        searchInputRef.current &&
+        !searchInputRef.current.contains(target)
+      ) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  /**
+   * Cleanup timer on unmount
+   */
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, []);
+
+  return (
+    <div className={`absolute top-4 left-4 z-10 ${className}`}>
+      {/* Search Input Container */}
+      <div className="relative w-96">
+        {/* Input Field */}
+        <div className="relative">
+          <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+            <Search className="w-5 h-5" />
+          </div>
+
+          <input
+            ref={searchInputRef}
+            type="text"
+            placeholder="Tìm kiếm thửa đất (VD: 33 48, 34:10)..."
+            value={query}
+            onChange={(e) => handleInputChange(e.target.value)}
+            onFocus={() => query && setIsDropdownOpen(true)}
+            className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg shadow-lg 
+                         focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
+                         bg-white text-gray-900 placeholder-gray-500 transition-all"
+            data-testid="search-input"
+          />
+
+          {/* Clear Button */}
+          {query && (
+            <button
+              onClick={handleClear}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 
+                       hover:text-gray-700 transition-colors"
+              aria-label="Clear search"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
+
+          {/* Loading Spinner */}
+          {isSearching && (
+            <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+              <div className="animate-spin">
+                <Search className="w-5 h-5 text-gray-400" />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Results Dropdown */}
+        {isDropdownOpen && (
+          <div
+            className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-300 
+                       rounded-lg shadow-xl max-h-96 overflow-y-auto"
+            data-testid="search-results"
+          >
+            {results.length === 0 ? (
+              <div className="px-4 py-6 text-center">
+                <p className="text-gray-500 text-sm">
+                  {isSearching ? 'Đang tìm kiếm...' : 'Không tìm thấy kết quả'}
+                </p>
+              </div>
+            ) : (
+              <ul className="divide-y divide-gray-200">
+                {results.map((parcel) => (
+                  <li key={parcel.id}>
+                    <button
+                      onClick={() => handleSelectParcel(parcel)}
+                      className="w-full px-4 py-3 text-left hover:bg-blue-50 transition-colors 
+                               focus:outline-none focus:bg-blue-100"
+                      type="button"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <p className="font-semibold text-gray-900">
+                            Tờ {parcel.so_to} - Thửa {parcel.so_thua}
+                          </p>
+                          <p className="text-sm text-gray-600 mt-1">
+                            {parcel.dia_chi}
+                          </p>
+                          <div className="flex gap-3 mt-2 text-xs">
+                            <span className="px-2 py-1 bg-gray-100 rounded text-gray-700">
+                              {parcel.dien_tich}m²
+                            </span>
+                            <span className="px-2 py-1 bg-blue-100 rounded text-blue-700">
+                              {parcel.loai_dat}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Helper Text */}
+      <p className="text-xs text-gray-500 mt-2">
+        Nhập số tờ và số thửa cách nhau bằng khoảng trắng hoặc dấu hai chấm
+      </p>
+    </div>
+  );
+};
+
+export default SearchBar;
+
+
+[6. TYPE DEFINITIONS]
+
+--- FILE: src/types/index.ts ---
+/**
+ * Type Definitions for LandManager Pro
+ * Single Source of Truth for all data models
+ */
+
+export interface LandParcel {
+  id: string; // Tờ-Thửa (e.g., "33:48")
+  so_to: number;
+  so_thua: number;
+  dien_tich: number;
+  loai_dat: string;
+  dia_chi: string;
+  coordinates: [number, number]; // [lng, lat] centroid
+}
+
+export interface User {
+  id: string;
+  name: string;
+  role: 'admin' | 'user' | 'guest';
+  permissions: string[];
+}
+
+export interface AppState {
+  isLoading: boolean;
+  selectedParcel: LandParcel | null;
+  isSidebarOpen: boolean;
+}

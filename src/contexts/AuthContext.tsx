@@ -1,11 +1,12 @@
 /**
  * AuthContext
  * Provides authentication state and methods
- * Mock implementation for LandManager Pro (no backend)
+ * Firebase-backed authentication for LandManager Pro
  */
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { User } from '@/types';
+import { initFirebase, ensureUserDocument } from '@/config/firebase';
 
 interface AuthContextType {
   user: User | null;
@@ -22,44 +23,60 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Mock auto-login after 500ms (Simulate API call)
-    const timer = setTimeout(() => {
-      const mockUser: User = {
-        id: 'dev-01',
-        name: 'Dev Admin',
-        role: 'admin',
-        permissions: ['read', 'write', 'delete', 'all'],
-      };
-      setUser(mockUser);
-      setIsLoading(false);
-      console.log('[AuthContext] ✓ Auto-logged in as:', mockUser.name);
-    }, 500);
+    let unsubscribe: (() => void) | null = null;
+    let isMounted = true;
 
-    return () => clearTimeout(timer);
+    const initAuth = async () => {
+      try {
+        const { auth } = await initFirebase();
+
+        unsubscribe = auth.onAuthStateChanged(async (firebaseUser: any) => {
+          if (!isMounted) return;
+
+          if (firebaseUser) {
+            await ensureUserDocument(firebaseUser);
+            const isAdmin = firebaseUser.uid === 'FEpPWWT1EaTWQ9FOqBxWN5FeEJk1';
+            const nextUser: User = {
+              id: firebaseUser.uid,
+              name: firebaseUser.displayName || firebaseUser.email || 'User',
+              role: isAdmin ? 'admin' : 'user',
+              permissions: isAdmin ? ['read', 'write', 'delete', 'all'] : ['read', 'write'],
+            };
+            setUser(nextUser);
+            console.log('[AuthContext] ✓ Authenticated as:', nextUser.name);
+          } else {
+            setUser(null);
+            console.log('[AuthContext] User signed out');
+          }
+
+          setIsLoading(false);
+        });
+      } catch (error) {
+        console.error('[AuthContext] Auth init failed:', error);
+        setIsLoading(false);
+      }
+    };
+
+    initAuth();
+
+    return () => {
+      isMounted = false;
+      if (unsubscribe) unsubscribe();
+    };
   }, []);
 
   const login = async (username: string, password: string): Promise<void> => {
-    // TODO: Implement login logic
     console.log('[AuthContext] login() called', { username });
     setIsLoading(true);
-    
-    // Mock authentication delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    const mockUser: User = {
-      id: 'user-001',
-      name: username,
-      role: 'admin',
-      permissions: ['read', 'write', 'delete'],
-    };
-    
-    setUser(mockUser);
-    setIsLoading(false);
+    const { auth } = await initFirebase();
+    await auth.signInWithEmailAndPassword(username, password);
   };
 
   const logout = (): void => {
     console.log('[AuthContext] logout() called');
-    setUser(null);
+    initFirebase()
+      .then(({ auth }) => auth.signOut())
+      .catch((error) => console.error('[AuthContext] logout failed:', error));
   };
 
   const value: AuthContextType = {

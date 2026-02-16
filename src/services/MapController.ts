@@ -32,6 +32,10 @@ async function loadMapDependencies() {
 }
 
 type MapInstance = any;
+type GeoJsonGeometry = {
+  type: string;
+  coordinates: any;
+};
 
 export class MapController {
   private static instance: MapController | null = null;
@@ -162,8 +166,12 @@ export class MapController {
         return;
       }
 
-      // Add source for PMTiles
-      const tileUrl = `pmtiles://${window.location.origin}/tiles/danang_parcels_final.pmtiles`;
+      const isProduction = import.meta.env.PROD;
+      const pmTilesUrl = isProduction
+        ? 'https://xemgiadat.netlify.app/tiles/danang_parcels_final.pmtiles'
+        : `${window.location.origin}/tiles/danang_parcels_final.pmtiles`;
+
+      const tileUrl = `pmtiles://${pmTilesUrl}`;
       
       this.map.addSource('cadastral-source', {
         type: 'vector',
@@ -238,7 +246,7 @@ export class MapController {
           
           if (parcel) {
             console.log('[MapClick] ✓ Parcel found:', parcel);
-            this.highlightParcel(parcel);
+            this.highlightParcel(parcel, feature.geometry);
             
             // Dispatch event for React components to listen
             window.dispatchEvent(new CustomEvent('parcel:selected', { detail: parcel }));
@@ -284,7 +292,7 @@ export class MapController {
   /**
    * Highlight a parcel on map
    */
-  highlightParcel(parcel: LandParcel): void {
+  highlightParcel(parcel: LandParcel, geometry?: GeoJsonGeometry): void {
     if (!this.map) {
       console.error('[MapController] Map not initialized');
       return;
@@ -293,8 +301,179 @@ export class MapController {
     // Fly to parcel
     this.flyTo(parcel.coordinates, 18);
 
-    // Optional: Add visual highlight (marker, popup, etc.)
+    this.ensureSelectedParcelLayers();
+
+    const selectedSource = this.map.getSource('selected-parcel-source') as any;
+    const labelSource = this.map.getSource('selected-parcel-labels') as any;
+
+    if (!geometry) {
+      if (selectedSource?.setData) {
+        selectedSource.setData({ type: 'FeatureCollection', features: [] });
+      }
+      if (labelSource?.setData) {
+        labelSource.setData({ type: 'FeatureCollection', features: [] });
+      }
+      console.log('[MapController] Highlighted parcel (no geometry):', parcel.id);
+      return;
+    }
+
+    if (selectedSource?.setData) {
+      selectedSource.setData({
+        type: 'Feature',
+        geometry,
+        properties: { id: parcel.id },
+      });
+    }
+
+    if (labelSource?.setData) {
+      const labelFeatures = this.buildEdgeLabelFeatures(geometry);
+      labelSource.setData({
+        type: 'FeatureCollection',
+        features: labelFeatures,
+      });
+    }
+
     console.log('[MapController] Highlighted parcel:', parcel.id);
+  }
+
+  private ensureSelectedParcelLayers(): void {
+    if (!this.map) {
+      return;
+    }
+
+    if (!this.map.getSource('selected-parcel-source')) {
+      this.map.addSource('selected-parcel-source', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+      });
+
+      this.map.addLayer({
+        id: 'selected-parcel-layer-fill',
+        type: 'fill',
+        source: 'selected-parcel-source',
+        paint: {
+          'fill-color': 'rgba(0, 255, 255, 0.25)',
+          'fill-outline-color': '#00f5ff',
+        },
+      });
+
+      this.map.addLayer({
+        id: 'selected-parcel-layer-line',
+        type: 'line',
+        source: 'selected-parcel-source',
+        paint: {
+          'line-color': '#ffd400',
+          'line-width': 3,
+        },
+      });
+    }
+
+    if (!this.map.getSource('selected-parcel-labels')) {
+      this.map.addSource('selected-parcel-labels', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+      });
+
+      this.map.addLayer({
+        id: 'selected-parcel-labels-layer',
+        type: 'symbol',
+        source: 'selected-parcel-labels',
+        layout: {
+          'text-field': ['get', 'label'],
+          'text-size': 12,
+          'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+          'text-allow-overlap': true,
+        },
+        paint: {
+          'text-color': '#0b0b0b',
+          'text-halo-color': '#ffffff',
+          'text-halo-width': 2,
+        },
+      });
+    }
+  }
+
+  private buildEdgeLabelFeatures(geometry: GeoJsonGeometry): any[] {
+    const ring = this.getPrimaryRing(geometry);
+    if (!ring || ring.length < 2) {
+      return [];
+    }
+
+    const closedRing = this.ensureClosedRing(ring);
+    const features: any[] = [];
+
+    for (let i = 0; i < closedRing.length - 1; i += 1) {
+      const start = closedRing[i];
+      const end = closedRing[i + 1];
+      const distance = this.haversineDistanceMeters(start, end);
+      const midpoint: [number, number] = [
+        (start[0] + end[0]) / 2,
+        (start[1] + end[1]) / 2,
+      ];
+
+      features.push({
+        type: 'Feature',
+        geometry: {
+          type: 'Point',
+          coordinates: midpoint,
+        },
+        properties: {
+          label: `${distance.toFixed(1)}m`,
+        },
+      });
+    }
+
+    return features;
+  }
+
+  private getPrimaryRing(geometry: GeoJsonGeometry): [number, number][] | null {
+    if (!geometry) {
+      return null;
+    }
+
+    if (geometry.type === 'Polygon') {
+      return geometry.coordinates?.[0] ?? null;
+    }
+
+    if (geometry.type === 'MultiPolygon') {
+      return geometry.coordinates?.[0]?.[0] ?? null;
+    }
+
+    return null;
+  }
+
+  private ensureClosedRing(ring: [number, number][]): [number, number][] {
+    if (ring.length < 2) {
+      return ring;
+    }
+
+    const first = ring[0];
+    const last = ring[ring.length - 1];
+    if (first[0] === last[0] && first[1] === last[1]) {
+      return ring;
+    }
+
+    return [...ring, first];
+  }
+
+  private haversineDistanceMeters(
+    start: [number, number],
+    end: [number, number]
+  ): number {
+    const toRad = (value: number) => (value * Math.PI) / 180;
+    const R = 6371000;
+    const lat1 = toRad(start[1]);
+    const lat2 = toRad(end[1]);
+    const deltaLat = toRad(end[1] - start[1]);
+    const deltaLng = toRad(end[0] - start[0]);
+
+    const a =
+      Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+      Math.cos(lat1) * Math.cos(lat2) *
+      Math.sin(deltaLng / 2) * Math.sin(deltaLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c;
   }
 
   /**

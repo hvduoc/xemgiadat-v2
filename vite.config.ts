@@ -6,7 +6,7 @@ import tailwindcss from '@tailwindcss/vite';
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
     return {
-      base: './',
+      base: '/xemgiadat-v2/',
       build: {
         outDir: 'dist',
         emptyOutDir: true,
